@@ -23,6 +23,7 @@ final class MainWindowController: NSWindowController {
         )
         window.title = "7-Zip"
         window.minSize = NSSize(width: 760, height: 420)
+        window.backgroundColor = .windowBackgroundColor
         self.init(window: window)
         setupWindow()
     }
@@ -40,11 +41,15 @@ final class MainWindowController: NSWindowController {
         root.orientation = .vertical
         root.spacing = 0
         root.translatesAutoresizingMaskIntoConstraints = false
+        root.wantsLayer = true
+        root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
 
         let pathBar = NSStackView()
         pathBar.orientation = .horizontal
         pathBar.spacing = 8
         pathBar.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        pathBar.wantsLayer = true
+        pathBar.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
 
         let upButton = NSButton(title: "Up", target: self, action: #selector(goUp))
         upButton.bezelStyle = .rounded
@@ -59,8 +64,11 @@ final class MainWindowController: NSWindowController {
         root.addArrangedSubview(scrollView)
         root.addArrangedSubview(statusContainer())
 
-        window.contentView = NSView()
-        window.contentView?.addSubview(root)
+        let contentView = NSView()
+        contentView.wantsLayer = true
+        contentView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        window.contentView = contentView
+        contentView.addSubview(root)
 
         NSLayoutConstraint.activate([
             root.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor),
@@ -112,6 +120,8 @@ final class MainWindowController: NSWindowController {
         container.orientation = .horizontal
         container.spacing = 8
         container.edgeInsets = NSEdgeInsets(top: 6, left: 12, bottom: 6, right: 12)
+        container.wantsLayer = true
+        container.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
         container.addArrangedSubview(progress)
         container.addArrangedSubview(statusField)
         return container
