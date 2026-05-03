@@ -1,8 +1,25 @@
 import AppKit
 
 enum SmokeTest {
+    struct Configuration {
+        var reportURL: URL
+        var archiveURL: URL?
+    }
+
+    static func configuration(from arguments: [String]) -> Configuration? {
+        guard let reportURL = reportURL(from: arguments) else { return nil }
+        return Configuration(reportURL: reportURL, archiveURL: archiveURL(from: arguments))
+    }
+
     static func reportURL(from arguments: [String]) -> URL? {
         guard let index = arguments.firstIndex(of: "--gui-smoke-report") else { return nil }
+        let valueIndex = arguments.index(after: index)
+        guard valueIndex < arguments.endIndex else { return nil }
+        return URL(fileURLWithPath: arguments[valueIndex])
+    }
+
+    static func archiveURL(from arguments: [String]) -> URL? {
+        guard let index = arguments.firstIndex(of: "--gui-smoke-archive") else { return nil }
         let valueIndex = arguments.index(after: index)
         guard valueIndex < arguments.endIndex else { return nil }
         return URL(fileURLWithPath: arguments[valueIndex])

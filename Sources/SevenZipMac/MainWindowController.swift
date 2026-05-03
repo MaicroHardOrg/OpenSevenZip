@@ -192,12 +192,16 @@ final class MainWindowController: NSWindowController {
         busy ? progress.startAnimation(nil) : progress.stopAnimation(nil)
     }
 
-    @objc private func openArchive() {
+    @objc private func openArchivePanel() {
         let panel = NSOpenPanel()
         panel.title = "Open Archive"
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
+        openArchive(at: url)
+    }
+
+    func openArchive(at url: URL) {
         archiveURL = url
         reloadArchive()
     }
@@ -411,7 +415,24 @@ final class MainWindowController: NSWindowController {
         report["backendName"] = backend?.info.name ?? ""
         report["backendPath"] = backend?.info.executableURL.path ?? ""
         report["backendVersion"] = backend?.info.version ?? ""
+        report["archivePath"] = archiveURL?.path ?? ""
+        report["allEntryCount"] = allEntries.count
+        report["visibleEntryNames"] = visibleEntries.map(\.name)
+        report["visibleEntryPaths"] = visibleEntries.map(\.path)
         return report
+    }
+
+    func smokeTestOpenArchive(_ url: URL) async throws {
+        guard let backend else {
+            throw AppError.noBackend
+        }
+
+        archiveURL = url
+        setBusy(true, message: "Listing \(url.lastPathComponent)...")
+        allEntries = try await backend.list(archive: url, password: nil)
+        currentPath = ""
+        refreshVisibleEntries()
+        setBusy(false, message: "\(allEntries.count) entries loaded from \(url.lastPathComponent)")
     }
 
     @objc private func openSelectedEntry() {
@@ -522,7 +543,7 @@ extension MainWindowController: NSToolbarDelegate {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             switch itemIdentifier {
             case .openArchive:
-                configure(item, label: "Open", image: "folder", action: #selector(openArchive))
+                configure(item, label: "Open", image: "folder", action: #selector(openArchivePanel))
             case .addFiles:
                 configure(item, label: "Add", image: "plus.square", action: #selector(addFiles))
             case .extract:

@@ -1,6 +1,6 @@
 import Foundation
 
-protocol SevenZipBackend {
+protocol SevenZipBackend: Sendable {
     var info: BackendInfo { get }
     func list(archive: URL, password: String?) async throws -> [ArchiveEntry]
     func extract(archive: URL, entries: [ArchiveEntry], destination: URL, password: String?, overwrite: Bool) async throws
@@ -9,7 +9,7 @@ protocol SevenZipBackend {
     func delete(archive: URL, entries: [ArchiveEntry]) async throws
 }
 
-final class CommandLineSevenZipBackend: SevenZipBackend {
+final class CommandLineSevenZipBackend: SevenZipBackend, @unchecked Sendable {
     let info: BackendInfo
 
     init(info: BackendInfo) {

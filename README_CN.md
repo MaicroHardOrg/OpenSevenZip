@@ -26,8 +26,15 @@ make run
 dist/7-Zip.app
 ```
 
+也可以直接打开压缩包：
+
+```bash
+open dist/7-Zip.app --args /path/to/archive.7z
+```
+
 ## 当前功能
 
+- 支持从应用内、Finder/Open With 或启动参数打开压缩包。
 - 打开压缩包并通过 `7z l -slt` 列出内容。
 - 在压缩包内浏览文件夹。
 - 将文件/文件夹添加到新压缩包。

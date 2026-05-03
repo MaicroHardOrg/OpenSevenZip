@@ -26,8 +26,15 @@ The app bundle is written to:
 dist/7-Zip.app
 ```
 
+You can also open an archive directly:
+
+```bash
+open dist/7-Zip.app --args /path/to/archive.7z
+```
+
 ## Current Features
 
+- Open archives from the app, Finder/Open With, or a launch argument.
 - Open an archive and list entries using `7z l -slt`.
 - Navigate folders inside archives.
 - Add files/folders to a new archive.
