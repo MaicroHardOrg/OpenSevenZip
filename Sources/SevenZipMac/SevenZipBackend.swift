@@ -17,45 +17,26 @@ final class CommandLineSevenZipBackend: SevenZipBackend, @unchecked Sendable {
     }
 
     func list(archive: URL, password: String?) async throws -> [ArchiveEntry] {
-        var args = ["l", "-slt", "-ba", archive.path]
-        appendPassword(password, to: &args)
-        let result = try await run(args, operation: .list)
+        let result = try await run(SevenZipCommandBuilder.list(archive: archive, password: password), operation: .list)
         return SevenZipParser.parseTechnicalList(result.output)
     }
 
     func extract(archive: URL, entries: [ArchiveEntry], destination: URL, password: String?, overwrite: Bool) async throws {
-        var args = ["x", archive.path, "-o\(destination.path)", overwrite ? "-y" : "-aos"]
-        appendPassword(password, to: &args)
-        args.append(contentsOf: entries.map(\.path))
+        let args = SevenZipCommandBuilder.extract(archive: archive, entries: entries, destination: destination, password: password, overwrite: overwrite)
         _ = try await run(args, operation: .extract)
     }
 
     func add(items: [URL], archive: URL, format: String, level: Int, password: String?, encryptHeaders: Bool) async throws {
-        var args = ["a", "-t\(format)", "-mx=\(level)", archive.path]
-        appendPassword(password, to: &args)
-        if encryptHeaders, password?.isEmpty == false {
-            args.append("-mhe=on")
-        }
-        args.append(contentsOf: items.map(\.path))
+        let args = SevenZipCommandBuilder.add(items: items, archive: archive, format: format, level: level, password: password, encryptHeaders: encryptHeaders)
         _ = try await run(args, operation: .add)
     }
 
     func test(archive: URL, password: String?) async throws {
-        var args = ["t", archive.path]
-        appendPassword(password, to: &args)
-        _ = try await run(args, operation: .test)
+        _ = try await run(SevenZipCommandBuilder.test(archive: archive, password: password), operation: .test)
     }
 
     func delete(archive: URL, entries: [ArchiveEntry]) async throws {
-        var args = ["d", archive.path]
-        args.append(contentsOf: entries.map(\.path))
-        _ = try await run(args, operation: .delete)
-    }
-
-    private func appendPassword(_ password: String?, to args: inout [String]) {
-        if let password, !password.isEmpty {
-            args.append("-p\(password)")
-        }
+        _ = try await run(SevenZipCommandBuilder.delete(archive: archive, entries: entries), operation: .delete)
     }
 
     @discardableResult
@@ -71,7 +52,6 @@ final class CommandLineSevenZipBackend: SevenZipBackend, @unchecked Sendable {
     }
 }
 
-@MainActor
 enum BackendLocator {
     private static let customBackendPathKey = "CustomBackendPath"
 
@@ -108,14 +88,18 @@ enum BackendLocator {
     }
 
     static func candidates() -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
-        var values: [(String, URL, BackendCapabilities)] = []
+        candidateList(customBackendPath: customBackendPath, resourceURL: Bundle.main.resourceURL)
+    }
+
+    static func candidateList(customBackendPath: String, resourceURL: URL?) -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
         let fullCapabilities: BackendCapabilities = [.list, .extract, .add, .test, .delete]
+        var values: [(String, URL, BackendCapabilities)] = []
 
         if !customBackendPath.isEmpty {
             values.append(("Custom 7-Zip", URL(fileURLWithPath: customBackendPath), fullCapabilities))
         }
 
-        if let resourceURL = Bundle.main.resourceURL {
+        if let resourceURL {
             values.append(("Official 7-Zip", resourceURL.appendingPathComponent("7zz"), fullCapabilities))
         }
 

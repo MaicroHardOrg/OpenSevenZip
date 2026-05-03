@@ -53,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 skipNext = false
                 continue
             }
-            if argument == "--gui-smoke-report" || argument == "--gui-smoke-archive" {
+            if argument == "--gui-smoke-report" || argument == "--gui-smoke-archive" || argument == "--gui-smoke-navigate" || argument == "--gui-smoke-password" {
                 skipNext = true
                 continue
             }
@@ -76,7 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             Task { @MainActor in
                 do {
                     if let archiveURL = smokeConfiguration.archiveURL {
-                        try await mainWindowController.smokeTestOpenArchive(archiveURL)
+                        try await mainWindowController.smokeTestOpenArchive(archiveURL, password: smokeConfiguration.password)
                     }
                     if let navigationPath = smokeConfiguration.navigationPath {
                         try mainWindowController.smokeTestNavigate(to: navigationPath)

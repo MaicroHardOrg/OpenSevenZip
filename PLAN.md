@@ -27,6 +27,8 @@ Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app
 - Implemented bundled official `7zz` support plus p7zip/custom backend detection.
 - Added app-owned self-tests for parser and smoke argument behavior via `make test`.
 - Added GUI smoke reporting that captures the rendered window from inside the app for CLI-based verification on a non-headless Mac.
+- Added command-construction and backend-priority self-tests covering spaces, Unicode paths, selected entries, passwords, overwrite modes, encrypted-header flags, and p7zip fallback order.
+- Verified real archive create/list/test/selected-extract flows with bundled official `7zz` and installed p7zip `7z`; verified encrypted archive listing with correct and wrong passwords.
 
 ## Behavior Details
 - Opening an archive loads table rows via `list`; double-clicking folders navigates inside the archive, double-clicking files extracts to a temporary preview location and opens with Finder default app.
@@ -41,20 +43,20 @@ Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app
   - `make build` produces a signed `.app`.
   - `make run` launches the app.
 - Backend tests:
-  - Parse `7z l -slt` output from official `7zz` and p7zip.
-  - Verify backend priority and fallback when `7zz` or p7zip binaries are missing.
-  - Verify command construction for spaces, Unicode paths, selected entries, and passwords.
+  - Done: parse `7z l -slt` output from official `7zz` and p7zip-style output.
+  - Done: verify backend priority and fallback order for custom, bundled `7zz`, and p7zip binaries.
+  - Done: verify command construction for spaces, Unicode paths, selected entries, passwords, overwrite mode, and encrypted headers.
 - Integration scenarios:
-  - Create `.7z` and `.zip`, list contents, extract all, extract selected files, test archive integrity.
-  - Open password-protected archives and handle wrong password errors.
-  - Confirm p7zip at `/usr/local/bin/7z` is detected on this machine.
+  - Done: create `.7z` and `.zip`, list contents, extract selected files, and test archive integrity.
+  - Done: open password-protected archives with the correct password and handle wrong password errors.
+  - Done: confirm p7zip at `/usr/local/bin/7z`, `/usr/local/bin/7za`, and `/usr/local/bin/7zr` is detected on this machine.
 - UI acceptance:
   - Main window remains responsive during operations.
   - Errors include backend name, command action, exit code, and readable stderr.
   - File/archive table handles nested folders, empty archives, large archives, and Unicode filenames.
 
 ## Assumptions
-- `voice-input-src` has no reusable app source locally, so implementation will create the SwiftPM/AppKit harness there using the README's build conventions.
+- `voice-input-src` provided build harness conventions only; implementation now lives in the standalone `7zip-mac-app` repo.
 - The first version is a native macOS 7-Zip file-manager experience, not a pixel-perfect Win32 clone.
 - Official 7-Zip is bundled as `7zz`; p7zip is supported by autodetection/configuration, not bundled.
 - Target output is a locally signed macOS app, not a notarized public release.

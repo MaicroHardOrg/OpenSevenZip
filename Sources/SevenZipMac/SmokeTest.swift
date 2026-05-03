@@ -5,6 +5,7 @@ enum SmokeTest {
         var reportURL: URL
         var archiveURL: URL?
         var navigationPath: String?
+        var password: String?
     }
 
     static func configuration(from arguments: [String]) -> Configuration? {
@@ -12,7 +13,8 @@ enum SmokeTest {
         return Configuration(
             reportURL: reportURL,
             archiveURL: archiveURL(from: arguments),
-            navigationPath: navigationPath(from: arguments)
+            navigationPath: navigationPath(from: arguments),
+            password: password(from: arguments)
         )
     }
 
@@ -32,6 +34,13 @@ enum SmokeTest {
 
     static func navigationPath(from arguments: [String]) -> String? {
         guard let index = arguments.firstIndex(of: "--gui-smoke-navigate") else { return nil }
+        let valueIndex = arguments.index(after: index)
+        guard valueIndex < arguments.endIndex else { return nil }
+        return arguments[valueIndex]
+    }
+
+    static func password(from arguments: [String]) -> String? {
+        guard let index = arguments.firstIndex(of: "--gui-smoke-password") else { return nil }
         let valueIndex = arguments.index(after: index)
         guard valueIndex < arguments.endIndex else { return nil }
         return arguments[valueIndex]

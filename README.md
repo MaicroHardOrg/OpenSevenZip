@@ -20,7 +20,7 @@ make build
 make test
 ```
 
-The self-test target runs parser and smoke-argument checks without requiring XCTest. GUI smoke reports can be run from the built app with `--gui-smoke-report`, optionally combined with `--gui-smoke-archive` and `--gui-smoke-navigate`.
+The self-test target runs parser, backend command-construction, backend-priority, and smoke-argument checks without requiring XCTest. GUI smoke reports can be run from the built app with `--gui-smoke-report`, optionally combined with `--gui-smoke-archive`, `--gui-smoke-navigate`, and `--gui-smoke-password`.
 
 ## Run
 

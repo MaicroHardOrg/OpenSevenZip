@@ -422,14 +422,14 @@ final class MainWindowController: NSWindowController {
         return report
     }
 
-    func smokeTestOpenArchive(_ url: URL) async throws {
+    func smokeTestOpenArchive(_ url: URL, password: String? = nil) async throws {
         guard let backend else {
             throw AppError.noBackend
         }
 
         archiveURL = url
         setBusy(true, message: "Listing \(url.lastPathComponent)...")
-        allEntries = try await backend.list(archive: url, password: nil)
+        allEntries = try await backend.list(archive: url, password: password)
         currentPath = ""
         refreshVisibleEntries()
         setBusy(false, message: "\(allEntries.count) entries loaded from \(url.lastPathComponent)")

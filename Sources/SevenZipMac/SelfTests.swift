@@ -7,6 +7,9 @@ enum SelfTests {
         try parserDropsSyntheticDotEntry()
         try smokeConfigurationParsesArguments()
         try smokeConfigurationRequiresReportPath()
+        try commandBuilderPreservesPathsPasswordsAndSelections()
+        try commandBuilderHandlesOverwriteModesAndHeaderEncryption()
+        try backendCandidatesUseExpectedPriority()
         print("Self-tests passed")
     }
 
@@ -80,17 +83,106 @@ enum SelfTests {
             "--gui-smoke-archive",
             "/tmp/archive.7z",
             "--gui-smoke-navigate",
-            "src/docs"
+            "src/docs",
+            "--gui-smoke-password",
+            "secret"
         ])
 
         try expect(configuration?.reportURL.path == "/tmp/report.json", "smoke report path")
         try expect(configuration?.archiveURL?.path == "/tmp/archive.7z", "smoke archive path")
         try expect(configuration?.navigationPath == "src/docs", "smoke navigation path")
+        try expect(configuration?.password == "secret", "smoke password")
     }
 
     private static func smokeConfigurationRequiresReportPath() throws {
         let configuration = SmokeTest.configuration(from: ["SevenZipMac", "--gui-smoke-archive", "/tmp/archive.7z"])
         try expect(configuration == nil, "smoke configuration requires report")
+    }
+
+    private static func commandBuilderPreservesPathsPasswordsAndSelections() throws {
+        let archive = URL(fileURLWithPath: "/tmp/Seven Zip Smoke/archive with space.7z")
+        let destination = URL(fileURLWithPath: "/tmp/Seven Zip Smoke/out folder")
+        let entries = [
+            ArchiveEntry(path: "src/docs/beta file.txt", size: 5, packedSize: 9, modified: nil, attributes: "A", encrypted: true, isDirectory: false),
+            ArchiveEntry(path: "unicodé/名前.txt", size: 8, packedSize: 12, modified: nil, attributes: "A", encrypted: false, isDirectory: false)
+        ]
+
+        try expect(
+            SevenZipCommandBuilder.list(archive: archive, password: "secret") == ["l", "-slt", "-ba", archive.path, "-psecret"],
+            "list command arguments"
+        )
+        try expect(
+            SevenZipCommandBuilder.extract(archive: archive, entries: entries, destination: destination, password: "secret", overwrite: true) == [
+                "x",
+                archive.path,
+                "-o\(destination.path)",
+                "-y",
+                "-psecret",
+                "src/docs/beta file.txt",
+                "unicodé/名前.txt"
+            ],
+            "extract command preserves selected paths"
+        )
+        try expect(
+            SevenZipCommandBuilder.delete(archive: archive, entries: entries) == ["d", archive.path, "src/docs/beta file.txt", "unicodé/名前.txt"],
+            "delete command preserves selected paths"
+        )
+    }
+
+    private static func commandBuilderHandlesOverwriteModesAndHeaderEncryption() throws {
+        let archive = URL(fileURLWithPath: "/tmp/test.zip")
+        let destination = URL(fileURLWithPath: "/tmp/out")
+        let item = URL(fileURLWithPath: "/tmp/input folder/file.txt")
+
+        try expect(
+            SevenZipCommandBuilder.extract(archive: archive, entries: [], destination: destination, password: nil, overwrite: false) == [
+                "x",
+                archive.path,
+                "-o\(destination.path)",
+                "-aos"
+            ],
+            "extract command no-overwrite mode"
+        )
+        try expect(
+            SevenZipCommandBuilder.add(items: [item], archive: archive, format: "zip", level: 7, password: "secret", encryptHeaders: true) == [
+                "a",
+                "-tzip",
+                "-mx=7",
+                archive.path,
+                "-psecret",
+                "-mhe=on",
+                item.path
+            ],
+            "add command encrypted headers"
+        )
+        try expect(
+            SevenZipCommandBuilder.add(items: [item], archive: archive, format: "zip", level: 1, password: "", encryptHeaders: true) == [
+                "a",
+                "-tzip",
+                "-mx=1",
+                archive.path,
+                item.path
+            ],
+            "add command skips empty password and header encryption"
+        )
+    }
+
+    private static func backendCandidatesUseExpectedPriority() throws {
+        let candidates = BackendLocator.candidateList(
+            customBackendPath: "/opt/local/bin/7zz-custom",
+            resourceURL: URL(fileURLWithPath: "/Applications/7-Zip.app/Contents/Resources")
+        )
+
+        try expect(
+            candidates.map(\.name) == ["Custom 7-Zip", "Official 7-Zip", "p7zip 7z", "p7zip 7za", "p7zip 7zr"],
+            "backend candidate priority"
+        )
+        try expect(candidates[0].url.path == "/opt/local/bin/7zz-custom", "custom backend path")
+        try expect(candidates[1].url.path == "/Applications/7-Zip.app/Contents/Resources/7zz", "official backend resource path")
+        try expect(candidates.allSatisfy { $0.capabilities.contains([.list, .extract, .add, .test, .delete]) }, "backend capabilities")
+
+        let fallbackOnly = BackendLocator.candidateList(customBackendPath: "", resourceURL: nil)
+        try expect(fallbackOnly.map(\.name) == ["p7zip 7z", "p7zip 7za", "p7zip 7zr"], "p7zip fallback priority")
     }
 
     private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
