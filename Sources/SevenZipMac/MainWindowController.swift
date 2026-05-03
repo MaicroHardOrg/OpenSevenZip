@@ -5,6 +5,7 @@ final class MainWindowController: NSWindowController {
     private let pathField = NSTextField(labelWithString: "No archive open")
     private let statusField = NSTextField(labelWithString: "Detecting backend...")
     private let progress = NSProgressIndicator()
+    private let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
     private let tableView = ArchiveTableView()
     private let scrollView = NSScrollView()
 
@@ -17,6 +18,8 @@ final class MainWindowController: NSWindowController {
     private var visibleEntries: [ArchiveEntry] = []
     private var activeSortDescriptors: [NSSortDescriptor] = [NSSortDescriptor(key: "name", ascending: true)]
     private var previewDirectories: [URL] = []
+    private var currentOperationTask: Task<Void, Never>?
+    private var currentOperationID: UUID?
     private static let archiveExtensions: Set<String> = ["7z", "zip", "rar", "tar", "gz", "tgz", "bz2", "xz", "zst", "cab", "iso", "dmg"]
 
     convenience init() {
@@ -124,6 +127,10 @@ final class MainWindowController: NSWindowController {
         progress.style = .spinning
         progress.controlSize = .small
         progress.isDisplayedWhenStopped = false
+        cancelButton.target = self
+        cancelButton.action = #selector(cancelCurrentOperation)
+        cancelButton.bezelStyle = .rounded
+        cancelButton.isHidden = true
         statusField.lineBreakMode = .byTruncatingMiddle
     }
 
@@ -136,6 +143,7 @@ final class MainWindowController: NSWindowController {
         container.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
         container.addArrangedSubview(progress)
         container.addArrangedSubview(statusField)
+        container.addArrangedSubview(cancelButton)
         return container
     }
 
@@ -233,18 +241,12 @@ final class MainWindowController: NSWindowController {
             return
         }
 
-        Task {
-            do {
-                setBusy(true, message: "Listing \(archiveURL.lastPathComponent)...")
-                allEntries = try await backend.list(archive: archiveURL, password: password)
-                archivePassword = password
-                currentPath = ""
-                refreshVisibleEntries()
-                setBusy(false, message: "\(allEntries.count) entries loaded from \(archiveURL.lastPathComponent)")
-            } catch {
-                setBusy(false, message: "List failed")
-                Dialogs.showError(error, in: window)
-            }
+        runOperation(startMessage: "Listing \(archiveURL.lastPathComponent)...", failureMessage: "List failed") { [self] in
+            allEntries = try await backend.list(archive: archiveURL, password: password)
+            archivePassword = password
+            currentPath = ""
+            refreshVisibleEntries()
+            return "\(allEntries.count) entries loaded from \(archiveURL.lastPathComponent)"
         }
     }
 
@@ -369,6 +371,46 @@ final class MainWindowController: NSWindowController {
     private func setBusy(_ busy: Bool, message: String) {
         statusField.stringValue = message
         busy ? progress.startAnimation(nil) : progress.stopAnimation(nil)
+        cancelButton.isHidden = !(busy && currentOperationTask != nil)
+    }
+
+    private func runOperation(
+        startMessage: String,
+        failureMessage: String,
+        operation: @escaping @MainActor () async throws -> String
+    ) {
+        currentOperationTask?.cancel()
+        let operationID = UUID()
+        currentOperationID = operationID
+        let task = Task { @MainActor in
+            guard currentOperationID == operationID else { return }
+            setBusy(true, message: startMessage)
+            do {
+                let successMessage = try await operation()
+                finishOperation(operationID, message: successMessage)
+            } catch is CancellationError {
+                finishOperation(operationID, message: "Cancelled")
+            } catch {
+                guard finishOperation(operationID, message: failureMessage) else { return }
+                Dialogs.showError(error, in: window)
+            }
+        }
+        currentOperationTask = task
+        setBusy(true, message: startMessage)
+    }
+
+    @discardableResult
+    private func finishOperation(_ operationID: UUID, message: String) -> Bool {
+        guard currentOperationID == operationID else { return false }
+        currentOperationTask = nil
+        currentOperationID = nil
+        setBusy(false, message: message)
+        return true
+    }
+
+    @objc private func cancelCurrentOperation() {
+        currentOperationTask?.cancel()
+        setBusy(true, message: "Cancelling...")
     }
 
     @objc func openArchivePanel() {
@@ -416,24 +458,18 @@ final class MainWindowController: NSWindowController {
             archivePassword = options.password
         }
 
-        Task {
-            do {
-                setBusy(true, message: "Extracting...")
-                try await backend.extract(
-                    archive: archiveURL,
-                    entries: entries,
-                    destination: options.destination,
-                    password: options.password,
-                    overwrite: options.overwrite
-                )
-                setBusy(false, message: "Extracted to \(options.destination.path)")
-                if options.openDestination {
-                    NSWorkspace.shared.activateFileViewerSelecting([options.destination])
-                }
-            } catch {
-                setBusy(false, message: "Extract failed")
-                Dialogs.showError(error, in: window)
+        runOperation(startMessage: "Extracting...", failureMessage: "Extract failed") {
+            try await backend.extract(
+                archive: archiveURL,
+                entries: entries,
+                destination: options.destination,
+                password: options.password,
+                overwrite: options.overwrite
+            )
+            if options.openDestination {
+                NSWorkspace.shared.activateFileViewerSelecting([options.destination])
             }
+            return "Extracted to \(options.destination.path)"
         }
     }
 
@@ -456,27 +492,21 @@ final class MainWindowController: NSWindowController {
         guard savePanel.runModal() == .OK, let archive = savePanel.url else { return }
         guard let options = Dialogs.askAddOptions(archive: archive, in: window) else { return }
 
-        Task {
-            do {
-                setBusy(true, message: "Creating \(options.archive.lastPathComponent)...")
-                try await backend.add(
-                    items: openPanel.urls,
-                    archive: options.archive,
-                    format: options.format,
-                    level: options.level,
-                    password: options.password,
-                    encryptHeaders: options.encryptHeaders
-                )
-                currentDirectoryURL = nil
-                archivePassword = options.password
-                archiveURL = options.archive
-                allEntries = try await backend.list(archive: options.archive, password: options.password)
-                refreshVisibleEntries()
-                setBusy(false, message: "Created \(options.archive.lastPathComponent)")
-            } catch {
-                setBusy(false, message: "Add failed")
-                Dialogs.showError(error, in: window)
-            }
+        runOperation(startMessage: "Creating \(options.archive.lastPathComponent)...", failureMessage: "Add failed") { [self] in
+            try await backend.add(
+                items: openPanel.urls,
+                archive: options.archive,
+                format: options.format,
+                level: options.level,
+                password: options.password,
+                encryptHeaders: options.encryptHeaders
+            )
+            currentDirectoryURL = nil
+            archivePassword = options.password
+            archiveURL = options.archive
+            allEntries = try await backend.list(archive: options.archive, password: options.password)
+            refreshVisibleEntries()
+            return "Created \(options.archive.lastPathComponent)"
         }
     }
 
@@ -487,16 +517,10 @@ final class MainWindowController: NSWindowController {
         }
         let password = passwordForOperation(message: "Test password")
         guard password != nil || archivePassword != nil else { return }
-        Task {
-            do {
-                setBusy(true, message: "Testing \(archiveURL.lastPathComponent)...")
-                try await backend.test(archive: archiveURL, password: password)
-                setBusy(false, message: "Test passed")
-                Dialogs.showInfo("Archive test passed", detail: archiveURL.path, in: window)
-            } catch {
-                setBusy(false, message: "Test failed")
-                Dialogs.showError(error, in: window)
-            }
+        runOperation(startMessage: "Testing \(archiveURL.lastPathComponent)...", failureMessage: "Test failed") { [self] in
+            try await backend.test(archive: archiveURL, password: password)
+            Dialogs.showInfo("Archive test passed", detail: archiveURL.path, in: window)
+            return "Test passed"
         }
     }
 
@@ -515,17 +539,11 @@ final class MainWindowController: NSWindowController {
         alert.addButton(withTitle: "Cancel")
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-        Task {
-            do {
-                setBusy(true, message: "Deleting...")
-                try await backend.delete(archive: archiveURL, entries: entries)
-                allEntries = try await backend.list(archive: archiveURL, password: archivePassword)
-                refreshVisibleEntries()
-                setBusy(false, message: "Deleted \(entries.count) entries")
-            } catch {
-                setBusy(false, message: "Delete failed")
-                Dialogs.showError(error, in: window)
-            }
+        runOperation(startMessage: "Deleting...", failureMessage: "Delete failed") { [self] in
+            try await backend.delete(archive: archiveURL, entries: entries)
+            allEntries = try await backend.list(archive: archiveURL, password: archivePassword)
+            refreshVisibleEntries()
+            return "Deleted \(entries.count) entries"
         }
     }
 
@@ -551,17 +569,11 @@ final class MainWindowController: NSWindowController {
         let newPath = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !newPath.isEmpty, newPath != entry.path else { return }
 
-        Task {
-            do {
-                setBusy(true, message: "Renaming \(entry.name)...")
-                try await backend.rename(archive: archiveURL, entry: entry, to: newPath)
-                allEntries = try await backend.list(archive: archiveURL, password: archivePassword)
-                refreshVisibleEntries()
-                setBusy(false, message: "Renamed \(entry.name)")
-            } catch {
-                setBusy(false, message: "Rename failed")
-                Dialogs.showError(error, in: window)
-            }
+        runOperation(startMessage: "Renaming \(entry.name)...", failureMessage: "Rename failed") { [self] in
+            try await backend.rename(archive: archiveURL, entry: entry, to: newPath)
+            allEntries = try await backend.list(archive: archiveURL, password: archivePassword)
+            refreshVisibleEntries()
+            return "Renamed \(entry.name)"
         }
     }
 
@@ -647,6 +659,8 @@ final class MainWindowController: NSWindowController {
         report["toolbarItems"] = window?.toolbar?.items.map(\.label) ?? []
         report["registeredDragTypes"] = tableView.registeredDraggedTypes.map(\.rawValue)
         report["hasDropTarget"] = tableView.dropTarget != nil
+        report["hasCancelButton"] = cancelButton.superview != nil
+        report["cancelButtonHidden"] = cancelButton.isHidden
         report["previewDirectoryCount"] = previewDirectories.count
         report["mainMenuItems"] = NSApp.mainMenu?.items.compactMap { item in
             item.submenu?.items.map(\.title)
@@ -797,24 +811,21 @@ final class MainWindowController: NSWindowController {
     private func addDroppedItems(_ urls: [URL]) {
         guard let backend, let archiveURL else { return }
 
-        Task {
-            do {
-                setBusy(true, message: "Adding \(urls.count) item\(urls.count == 1 ? "" : "s")...")
-                try await backend.add(
-                    items: urls,
-                    archive: archiveURL,
-                    format: archiveURL.pathExtension.isEmpty ? "7z" : archiveURL.pathExtension,
-                    level: 5,
-                    password: archivePassword,
-                    encryptHeaders: archivePassword?.isEmpty == false
-                )
-                allEntries = try await backend.list(archive: archiveURL, password: archivePassword)
-                refreshVisibleEntries()
-                setBusy(false, message: "Added \(urls.count) item\(urls.count == 1 ? "" : "s")")
-            } catch {
-                setBusy(false, message: "Drop add failed")
-                Dialogs.showError(error, in: window)
-            }
+        runOperation(
+            startMessage: "Adding \(urls.count) item\(urls.count == 1 ? "" : "s")...",
+            failureMessage: "Drop add failed"
+        ) { [self] in
+            try await backend.add(
+                items: urls,
+                archive: archiveURL,
+                format: archiveURL.pathExtension.isEmpty ? "7z" : archiveURL.pathExtension,
+                level: 5,
+                password: archivePassword,
+                encryptHeaders: archivePassword?.isEmpty == false
+            )
+            allEntries = try await backend.list(archive: archiveURL, password: archivePassword)
+            refreshVisibleEntries()
+            return "Added \(urls.count) item\(urls.count == 1 ? "" : "s")"
         }
     }
 
@@ -824,18 +835,12 @@ final class MainWindowController: NSWindowController {
             .appendingPathComponent("SevenZipMacPreview", isDirectory: true)
             .appendingPathComponent(UUID().uuidString, isDirectory: true)
 
-        Task {
-            do {
-                try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
-                previewDirectories.append(destination)
-                setBusy(true, message: "Extracting preview...")
-                try await backend.extract(archive: archiveURL, entries: [entry], destination: destination, password: archivePassword, overwrite: true)
-                setBusy(false, message: "Opened \(entry.name)")
-                NSWorkspace.shared.open(destination.appendingPathComponent(entry.path))
-            } catch {
-                setBusy(false, message: "Preview failed")
-                Dialogs.showError(error, in: window)
-            }
+        runOperation(startMessage: "Extracting preview...", failureMessage: "Preview failed") { [self] in
+            try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+            previewDirectories.append(destination)
+            try await backend.extract(archive: archiveURL, entries: [entry], destination: destination, password: archivePassword, overwrite: true)
+            NSWorkspace.shared.open(destination.appendingPathComponent(entry.path))
+            return "Opened \(entry.name)"
         }
     }
 

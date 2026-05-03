@@ -19,6 +19,7 @@ package:
 	mkdir -p "$(MACOS_DIR)" "$(RESOURCES_DIR)"
 	cp "$(BUILD_DIR)/$(EXECUTABLE)" "$(MACOS_DIR)/$(EXECUTABLE)"
 	cp "Resources/Info.plist" "$(CONTENTS_DIR)/Info.plist"
+	cp "Resources/AppIcon.icns" "$(RESOURCES_DIR)/AppIcon.icns"
 	if [ -x "Resources/7zz" ]; then cp "Resources/7zz" "$(RESOURCES_DIR)/7zz"; fi
 	codesign --force --deep --sign - "$(APP_DIR)"
 

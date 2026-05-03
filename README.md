@@ -51,11 +51,13 @@ open dist/7-Zip.app --args /path/to/archive.7z
 - Add files/folders to a new archive.
 - Configure add format/compression/password options when creating an archive.
 - Extract selected entries or the whole archive with overwrite, password, and reveal-destination options.
+- Cancel long-running list, add, extract, test, delete, rename, and preview operations.
 - Test archive integrity.
 - Delete selected archive entries where the backend supports it.
 - Rename a selected archive entry where the backend supports it.
 - Password prompts for listing, extracting, testing, and creating encrypted archives.
 - Backend settings with persisted custom executable path, reset-to-autodetect, and candidate detection.
+- Packaged `.app` bundle with a 7-Zip icon resource and local ad-hoc signature.
 
 ## Notes
 
