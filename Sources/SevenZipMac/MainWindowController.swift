@@ -5,7 +5,7 @@ final class MainWindowController: NSWindowController {
     private let pathField = NSTextField(labelWithString: "No archive open")
     private let statusField = NSTextField(labelWithString: "Detecting backend...")
     private let progress = NSProgressIndicator()
-    private let tableView = NSTableView()
+    private let tableView = ArchiveTableView()
     private let scrollView = NSScrollView()
 
     private var backend: SevenZipBackend?
@@ -39,6 +39,7 @@ final class MainWindowController: NSWindowController {
         guard let window else { return }
         window.center()
         window.toolbar = makeToolbar()
+        installMainMenu()
 
         let root = NSStackView()
         root.orientation = .vertical
@@ -91,6 +92,7 @@ final class MainWindowController: NSWindowController {
         tableView.allowsMultipleSelection = true
         tableView.doubleAction = #selector(openSelectedEntry)
         tableView.target = self
+        tableView.menu = makeContextMenu()
 
         addColumn("name", title: "Name", width: 390)
         addColumn("size", title: "Size", width: 110)
@@ -137,6 +139,77 @@ final class MainWindowController: NSWindowController {
         toolbar.displayMode = .iconAndLabel
         toolbar.delegate = self
         return toolbar
+    }
+
+    private func installMainMenu() {
+        let mainMenu = NSMenu()
+
+        let appItem = NSMenuItem()
+        mainMenu.addItem(appItem)
+        let appMenu = NSMenu()
+        appItem.submenu = appMenu
+        appMenu.addItem(withTitle: "Quit 7-Zip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+
+        let fileItem = NSMenuItem()
+        mainMenu.addItem(fileItem)
+        let fileMenu = NSMenu(title: "File")
+        fileItem.submenu = fileMenu
+        addMenuItem("Open Archive...", action: #selector(openArchivePanel), key: "o", modifiers: [.command], to: fileMenu)
+        addMenuItem("Add Files...", action: #selector(addFiles), key: "n", modifiers: [.command], to: fileMenu)
+        fileMenu.addItem(.separator())
+        addMenuItem("Extract...", action: #selector(extractSelected), key: "e", modifiers: [.command], to: fileMenu)
+        addMenuItem("Test Archive", action: #selector(testArchive), key: "t", modifiers: [.command], to: fileMenu)
+        addMenuItem("Archive Password...", action: #selector(askPasswordAndReload), key: "l", modifiers: [.command], to: fileMenu)
+
+        let editItem = NSMenuItem()
+        mainMenu.addItem(editItem)
+        let editMenu = NSMenu(title: "Edit")
+        editItem.submenu = editMenu
+        addMenuItem("Rename", action: #selector(renameSelected), key: "\r", modifiers: [], to: editMenu)
+        addMenuItem("Delete", action: #selector(deleteSelected), key: "\u{8}", modifiers: [], to: editMenu)
+
+        let navigateItem = NSMenuItem()
+        mainMenu.addItem(navigateItem)
+        let navigateMenu = NSMenu(title: "Navigate")
+        navigateItem.submenu = navigateMenu
+        addMenuItem("Open Selected", action: #selector(openSelectedEntry), key: "\r", modifiers: [.command], to: navigateMenu)
+        addMenuItem("Up", action: #selector(goUp), key: String(UnicodeScalar(NSUpArrowFunctionKey)!), modifiers: [.command], to: navigateMenu)
+
+        let settingsItem = NSMenuItem()
+        mainMenu.addItem(settingsItem)
+        let settingsMenu = NSMenu(title: "Settings")
+        settingsItem.submenu = settingsMenu
+        addMenuItem("Backend...", action: #selector(showBackendSettings), key: ",", modifiers: [.command], to: settingsMenu)
+
+        NSApp.mainMenu = mainMenu
+    }
+
+    @discardableResult
+    private func addMenuItem(
+        _ title: String,
+        action: Selector,
+        key: String,
+        modifiers: NSEvent.ModifierFlags,
+        to menu: NSMenu
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: key)
+        item.keyEquivalentModifierMask = modifiers
+        item.target = self
+        menu.addItem(item)
+        return item
+    }
+
+    private func makeContextMenu() -> NSMenu {
+        let menu = NSMenu(title: "Archive")
+        addMenuItem("Open", action: #selector(openSelectedEntry), key: "", modifiers: [], to: menu)
+        addMenuItem("Extract...", action: #selector(extractSelected), key: "", modifiers: [], to: menu)
+        addMenuItem("Rename...", action: #selector(renameSelected), key: "", modifiers: [], to: menu)
+        addMenuItem("Delete", action: #selector(deleteSelected), key: "", modifiers: [], to: menu)
+        menu.addItem(.separator())
+        addMenuItem("Test Archive", action: #selector(testArchive), key: "", modifiers: [], to: menu)
+        addMenuItem("Password...", action: #selector(askPasswordAndReload), key: "", modifiers: [], to: menu)
+        addMenuItem("Backend...", action: #selector(showBackendSettings), key: "", modifiers: [], to: menu)
+        return menu
     }
 
     private func detectBackend() async {
@@ -291,7 +364,7 @@ final class MainWindowController: NSWindowController {
         busy ? progress.startAnimation(nil) : progress.stopAnimation(nil)
     }
 
-    @objc private func openArchivePanel() {
+    @objc func openArchivePanel() {
         let panel = NSOpenPanel()
         panel.title = "Open Archive"
         panel.canChooseDirectories = false
@@ -306,7 +379,7 @@ final class MainWindowController: NSWindowController {
         reloadArchive()
     }
 
-    @objc private func askPasswordAndReload() {
+    @objc func askPasswordAndReload() {
         guard archiveURL != nil else {
             Dialogs.showError(AppError.noArchiveSelected, in: window)
             return
@@ -316,7 +389,7 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func extractSelected() {
+    @objc func extractSelected() {
         guard let backend, let archiveURL else {
             Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
             return
@@ -345,7 +418,7 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func addFiles() {
+    @objc func addFiles() {
         guard let backend else {
             Dialogs.showError(AppError.noBackend, in: window)
             return
@@ -380,7 +453,7 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func testArchive() {
+    @objc func testArchive() {
         guard let backend, let archiveURL else {
             Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
             return
@@ -399,7 +472,7 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func deleteSelected() {
+    @objc func deleteSelected() {
         guard let backend, let archiveURL else {
             Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
             return
@@ -428,7 +501,7 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func renameSelected() {
+    @objc func renameSelected() {
         guard let backend, let archiveURL else {
             Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
             return
@@ -464,7 +537,7 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func showBackendSettings() {
+    @objc func showBackendSettings() {
         var pathValue = BackendLocator.customBackendPath
 
         while true {
@@ -544,6 +617,10 @@ final class MainWindowController: NSWindowController {
         report["windowIsVisible"] = window?.isVisible ?? false
         report["windowFrame"] = windowFrame
         report["toolbarItems"] = window?.toolbar?.items.map(\.label) ?? []
+        report["mainMenuItems"] = NSApp.mainMenu?.items.compactMap { item in
+            item.submenu?.items.map(\.title)
+        } ?? []
+        report["contextMenuItems"] = tableView.menu?.items.map(\.title) ?? []
         report["pathText"] = pathField.stringValue
         report["statusText"] = statusField.stringValue
         report["tableColumnCount"] = tableView.tableColumns.count
@@ -611,7 +688,7 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func openSelectedEntry() {
+    @objc func openSelectedEntry() {
         let row = tableView.clickedRow >= 0 ? tableView.clickedRow : tableView.selectedRow
         guard row >= 0 && row < visibleEntries.count else { return }
         let entry = visibleEntries[row]
@@ -626,7 +703,7 @@ final class MainWindowController: NSWindowController {
         }
     }
 
-    @objc private func goUp() {
+    @objc func goUp() {
         if currentPath.isEmpty, let archiveURL {
             showDirectory(archiveURL.deletingLastPathComponent())
             return
@@ -686,7 +763,7 @@ extension MainWindowController: NSTableViewDataSource, NSTableViewDelegate {
     }
 
     nonisolated func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
-        MainActor.assumeIsolated {
+        return MainActor.assumeIsolated {
             activeSortDescriptors = tableView.sortDescriptors
             if archiveURL == nil, let currentDirectoryURL {
                 showDirectory(currentDirectoryURL)
@@ -737,6 +814,36 @@ extension MainWindowController: NSTableViewDataSource, NSTableViewDelegate {
                 field.stringValue = ""
             }
             return cell
+        }
+    }
+}
+
+extension MainWindowController: NSMenuItemValidation {
+    nonisolated func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        let action = menuItem.action
+        return MainActor.assumeIsolated {
+            switch action {
+            case #selector(openArchivePanel), #selector(showBackendSettings):
+                return true
+            case #selector(addFiles):
+                return backend != nil
+            case #selector(openSelectedEntry):
+                return tableView.selectedRowIndexes.count == 1
+            case #selector(goUp):
+                if archiveURL != nil { return true }
+                guard let currentDirectoryURL else { return false }
+                return currentDirectoryURL.deletingLastPathComponent().path != currentDirectoryURL.path
+            case #selector(extractSelected):
+                return backend != nil && archiveURL != nil
+            case #selector(testArchive), #selector(askPasswordAndReload):
+                return backend != nil && archiveURL != nil
+            case #selector(renameSelected):
+                return backend != nil && archiveURL != nil && tableView.selectedRowIndexes.count == 1
+            case #selector(deleteSelected):
+                return backend != nil && archiveURL != nil && !tableView.selectedRowIndexes.isEmpty
+            default:
+                return true
+            }
         }
     }
 }
@@ -796,4 +903,39 @@ private extension NSToolbarItem.Identifier {
     static let deleteEntry = NSToolbarItem.Identifier("DeleteEntry")
     static let password = NSToolbarItem.Identifier("Password")
     static let backendSettings = NSToolbarItem.Identifier("BackendSettings")
+}
+
+private final class ArchiveTableView: NSTableView {
+    override func menu(for event: NSEvent) -> NSMenu? {
+        let point = convert(event.locationInWindow, from: nil)
+        let clickedRow = row(at: point)
+        if clickedRow >= 0, !selectedRowIndexes.contains(clickedRow) {
+            selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
+        }
+        return super.menu(for: event)
+    }
+
+    override func keyDown(with event: NSEvent) {
+        guard event.modifierFlags.intersection([.command, .option, .control]).isEmpty else {
+            super.keyDown(with: event)
+            return
+        }
+
+        switch event.charactersIgnoringModifiers {
+        case "\r", "\u{3}":
+            if let doubleAction, let target {
+                NSApp.sendAction(doubleAction, to: target, from: self)
+            } else {
+                super.keyDown(with: event)
+            }
+        case "\u{7F}", "\u{8}":
+            if let target {
+                NSApp.sendAction(#selector(MainWindowController.deleteSelected), to: target, from: self)
+            } else {
+                super.keyDown(with: event)
+            }
+        default:
+            super.keyDown(with: event)
+        }
+    }
 }

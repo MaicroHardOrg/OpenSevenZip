@@ -26,6 +26,7 @@ Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app
 - Implemented native AppKit archive browser, toolbar workflows, backend selection, direct archive opening, and in-archive navigation.
 - Implemented parent-folder browsing so Up from an archive root exits the archive and shows its containing folder.
 - Implemented sortable table columns for archive and folder listings.
+- Implemented table context menus and keyboard shortcuts for common archive actions.
 - Implemented bundled official `7zz` support plus p7zip/custom backend detection.
 - Implemented Open, Add, Extract, Test, Delete, Rename, Password, and Backend toolbar workflows.
 - Added app-owned self-tests for parser and smoke argument behavior via `make test`.
