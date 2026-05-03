@@ -50,8 +50,10 @@ open dist/7-Zip.app --args /path/to/archive.7z
 - Drag files onto an open archive to add them, or drag an archive/folder into the listing to open it.
 - Add files/folders to a new archive.
 - Configure add format/compression/password options when creating an archive.
+- Configure split-volume sizes plus include/exclude patterns when creating an archive.
 - Extract selected entries or the whole archive with overwrite, password, and reveal-destination options.
 - Cancel long-running list, add, extract, test, delete, rename, and preview operations.
+- Show live backend output in the status bar while operations run.
 - Test archive integrity.
 - Delete selected archive entries where the backend supports it.
 - Rename a selected archive entry where the backend supports it.

@@ -2,19 +2,22 @@ import AppKit
 
 @MainActor
 enum Dialogs {
-    struct ExtractOptions {
+    struct ExtractOptions: Sendable {
         var destination: URL
         var password: String?
         var overwrite: Bool
         var openDestination: Bool
     }
 
-    struct AddOptions {
+    struct AddOptions: Sendable {
         var archive: URL
         var format: String
         var level: Int
         var password: String?
         var encryptHeaders: Bool
+        var volumeSize: String
+        var includePatterns: String
+        var excludePatterns: String
     }
 
     static func showError(_ error: Error, in window: NSWindow?) {
@@ -139,10 +142,22 @@ enum Dialogs {
         let encryptHeadersButton = NSButton(checkboxWithTitle: "Encrypt file names when supported", target: nil, action: nil)
         encryptHeadersButton.state = .on
 
+        let volumeField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        volumeField.placeholderString = "Split size, for example 100m"
+
+        let includeField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        includeField.placeholderString = "*.txt, docs/*"
+
+        let excludeField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
+        excludeField.placeholderString = "*.tmp, .DS_Store"
+
         stack.addRow(with: [NSTextField(labelWithString: "Format"), formatPopup])
         stack.addRow(with: [NSTextField(labelWithString: "Compression"), levelPopup])
         stack.addRow(with: [NSTextField(labelWithString: "Password"), passwordField])
         stack.addRow(with: [NSView(), encryptHeadersButton])
+        stack.addRow(with: [NSTextField(labelWithString: "Split volumes"), volumeField])
+        stack.addRow(with: [NSTextField(labelWithString: "Include"), includeField])
+        stack.addRow(with: [NSTextField(labelWithString: "Exclude"), excludeField])
         alert.accessoryView = stack
         NSLayoutConstraint.activate([
             stack.widthAnchor.constraint(equalToConstant: 420)
@@ -166,7 +181,10 @@ enum Dialogs {
             format: formatPopup.titleOfSelectedItem ?? "7z",
             level: selectedLevel,
             password: passwordField.stringValue,
-            encryptHeaders: encryptHeadersButton.state == .on
+            encryptHeaders: encryptHeadersButton.state == .on,
+            volumeSize: volumeField.stringValue,
+            includePatterns: includeField.stringValue,
+            excludePatterns: excludeField.stringValue
         )
     }
 }

@@ -20,7 +20,7 @@ Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app
 - Add packaging/build support:
   - `Makefile` targets: `build`, `run`, `install`, `clean`, `build-backend`.
   - `build-backend` compiles official macOS `7zz` from the checked-in `7zip` source and copies it into app resources.
-- App bundle includes `Info.plist`, icon placeholder derived from existing 7-Zip assets where licensing permits, and local codesigning.
+- App bundle includes `Info.plist`, icon derived from existing 7-Zip assets where licensing permits, and local codesigning.
 
 ## Current Status
 - Implemented native AppKit archive browser, toolbar workflows, backend selection, direct archive opening, and in-archive navigation.
@@ -29,6 +29,8 @@ Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app
 - Implemented table context menus and keyboard shortcuts for common archive actions.
 - Implemented drag-and-drop opening/adding, add options, extract options, session password reuse, and preview temp cleanup.
 - Implemented cancellable long-running backend operations with a status-bar Cancel button that terminates the active 7-Zip process.
+- Implemented live backend output updates in the status bar for long-running operations.
+- Implemented advanced add options for split volumes plus include/exclude patterns.
 - Implemented app bundle icon packaging from the checked-in 7-Zip file-manager icon asset.
 - Implemented bundled official `7zz` support plus p7zip/custom backend detection.
 - Implemented Open, Add, Extract, Test, Delete, Rename, Password, and Backend toolbar workflows.
@@ -42,7 +44,7 @@ Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app
 - Extract supports selected entries or whole archive, destination picker, overwrite mode, password, and "open destination after extract."
 - Add/compress supports selected filesystem items, archive path, format selection based on backend capabilities, compression level, encryption password, and header encryption when supported.
 - Backend settings window shows selected backend, detected version, executable path, capabilities, and lets the user override the path or reset to autodetect.
-- Long-running operations run asynchronously with cancellable progress UI. If exact progress is not available from backend output, show indeterminate progress plus current log line.
+- Long-running operations run asynchronously with cancellable progress UI. If exact progress is not available from backend output, show indeterminate progress plus current backend output line.
 
 ## Test Plan
 - Build tests:

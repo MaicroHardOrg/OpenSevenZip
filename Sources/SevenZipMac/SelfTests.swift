@@ -193,8 +193,18 @@ enum SelfTests {
             ],
             "extract command no-overwrite mode"
         )
+        let encryptedOptions = Dialogs.AddOptions(
+            archive: archive,
+            format: "zip",
+            level: 7,
+            password: "secret",
+            encryptHeaders: true,
+            volumeSize: "",
+            includePatterns: "",
+            excludePatterns: ""
+        )
         try expect(
-            SevenZipCommandBuilder.add(items: [item], archive: archive, format: "zip", level: 7, password: "secret", encryptHeaders: true) == [
+            SevenZipCommandBuilder.add(items: [item], options: encryptedOptions) == [
                 "a",
                 "-tzip",
                 "-mx=7",
@@ -205,8 +215,43 @@ enum SelfTests {
             ],
             "add command encrypted headers"
         )
+        let advancedOptions = Dialogs.AddOptions(
+            archive: archive,
+            format: "7z",
+            level: 9,
+            password: nil,
+            encryptHeaders: false,
+            volumeSize: "100m",
+            includePatterns: "*.txt, docs/*",
+            excludePatterns: "*.tmp\n.DS_Store"
+        )
         try expect(
-            SevenZipCommandBuilder.add(items: [item], archive: archive, format: "zip", level: 1, password: "", encryptHeaders: true) == [
+            SevenZipCommandBuilder.add(items: [item], options: advancedOptions) == [
+                "a",
+                "-t7z",
+                "-mx=9",
+                archive.path,
+                "-v100m",
+                "-i!*.txt",
+                "-i!docs/*",
+                "-x!*.tmp",
+                "-x!.DS_Store",
+                item.path
+            ],
+            "add command split volumes and include exclude filters"
+        )
+        let emptyPasswordOptions = Dialogs.AddOptions(
+            archive: archive,
+            format: "zip",
+            level: 1,
+            password: "",
+            encryptHeaders: true,
+            volumeSize: "",
+            includePatterns: "",
+            excludePatterns: ""
+        )
+        try expect(
+            SevenZipCommandBuilder.add(items: [item], options: emptyPasswordOptions) == [
                 "a",
                 "-tzip",
                 "-mx=1",

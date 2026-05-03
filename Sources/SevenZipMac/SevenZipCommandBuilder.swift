@@ -14,12 +14,17 @@ enum SevenZipCommandBuilder {
         return args
     }
 
-    static func add(items: [URL], archive: URL, format: String, level: Int, password: String?, encryptHeaders: Bool) -> [String] {
-        var args = ["a", "-t\(format)", "-mx=\(level)", archive.path]
-        appendPassword(password, to: &args)
-        if encryptHeaders, password?.isEmpty == false {
+    static func add(items: [URL], options: Dialogs.AddOptions) -> [String] {
+        var args = ["a", "-t\(options.format)", "-mx=\(options.level)", options.archive.path]
+        appendPassword(options.password, to: &args)
+        if options.encryptHeaders, options.password?.isEmpty == false {
             args.append("-mhe=on")
         }
+        if !options.volumeSize.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            args.append("-v\(options.volumeSize.trimmingCharacters(in: .whitespacesAndNewlines))")
+        }
+        appendPatternSwitches(options.includePatterns, prefix: "-i!", to: &args)
+        appendPatternSwitches(options.excludePatterns, prefix: "-x!", to: &args)
         args.append(contentsOf: items.map(\.path))
         return args
     }
@@ -44,5 +49,13 @@ enum SevenZipCommandBuilder {
         if let password, !password.isEmpty {
             args.append("-p\(password)")
         }
+    }
+
+    private static func appendPatternSwitches(_ patterns: String, prefix: String, to args: inout [String]) {
+        let separators = CharacterSet(charactersIn: "\n,")
+        let values = patterns.components(separatedBy: separators)
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        args.append(contentsOf: values.map { "\(prefix)\($0)" })
     }
 }

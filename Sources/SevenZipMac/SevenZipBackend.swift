@@ -1,13 +1,41 @@
 import Foundation
 
+typealias BackendProgress = @Sendable (_ line: String) -> Void
+
 protocol SevenZipBackend: Sendable {
     var info: BackendInfo { get }
-    func list(archive: URL, password: String?) async throws -> [ArchiveEntry]
-    func extract(archive: URL, entries: [ArchiveEntry], destination: URL, password: String?, overwrite: Bool) async throws
-    func add(items: [URL], archive: URL, format: String, level: Int, password: String?, encryptHeaders: Bool) async throws
-    func test(archive: URL, password: String?) async throws
-    func delete(archive: URL, entries: [ArchiveEntry]) async throws
-    func rename(archive: URL, entry: ArchiveEntry, to newPath: String) async throws
+    func list(archive: URL, password: String?, progress: BackendProgress?) async throws -> [ArchiveEntry]
+    func extract(archive: URL, entries: [ArchiveEntry], destination: URL, password: String?, overwrite: Bool, progress: BackendProgress?) async throws
+    func add(items: [URL], options: Dialogs.AddOptions, progress: BackendProgress?) async throws
+    func test(archive: URL, password: String?, progress: BackendProgress?) async throws
+    func delete(archive: URL, entries: [ArchiveEntry], progress: BackendProgress?) async throws
+    func rename(archive: URL, entry: ArchiveEntry, to newPath: String, progress: BackendProgress?) async throws
+}
+
+extension SevenZipBackend {
+    func list(archive: URL, password: String?) async throws -> [ArchiveEntry] {
+        try await list(archive: archive, password: password, progress: nil)
+    }
+
+    func extract(archive: URL, entries: [ArchiveEntry], destination: URL, password: String?, overwrite: Bool) async throws {
+        try await extract(archive: archive, entries: entries, destination: destination, password: password, overwrite: overwrite, progress: nil)
+    }
+
+    func add(items: [URL], options: Dialogs.AddOptions) async throws {
+        try await add(items: items, options: options, progress: nil)
+    }
+
+    func test(archive: URL, password: String?) async throws {
+        try await test(archive: archive, password: password, progress: nil)
+    }
+
+    func delete(archive: URL, entries: [ArchiveEntry]) async throws {
+        try await delete(archive: archive, entries: entries, progress: nil)
+    }
+
+    func rename(archive: URL, entry: ArchiveEntry, to newPath: String) async throws {
+        try await rename(archive: archive, entry: entry, to: newPath, progress: nil)
+    }
 }
 
 final class CommandLineSevenZipBackend: SevenZipBackend, @unchecked Sendable {
@@ -17,39 +45,40 @@ final class CommandLineSevenZipBackend: SevenZipBackend, @unchecked Sendable {
         self.info = info
     }
 
-    func list(archive: URL, password: String?) async throws -> [ArchiveEntry] {
-        let result = try await run(SevenZipCommandBuilder.list(archive: archive, password: password), operation: .list)
+    func list(archive: URL, password: String?, progress: BackendProgress?) async throws -> [ArchiveEntry] {
+        let result = try await run(SevenZipCommandBuilder.list(archive: archive, password: password), operation: .list, progress: progress)
         return SevenZipParser.parseTechnicalList(result.output)
     }
 
-    func extract(archive: URL, entries: [ArchiveEntry], destination: URL, password: String?, overwrite: Bool) async throws {
+    func extract(archive: URL, entries: [ArchiveEntry], destination: URL, password: String?, overwrite: Bool, progress: BackendProgress?) async throws {
         let args = SevenZipCommandBuilder.extract(archive: archive, entries: entries, destination: destination, password: password, overwrite: overwrite)
-        _ = try await run(args, operation: .extract)
+        _ = try await run(args, operation: .extract, progress: progress)
     }
 
-    func add(items: [URL], archive: URL, format: String, level: Int, password: String?, encryptHeaders: Bool) async throws {
-        let args = SevenZipCommandBuilder.add(items: items, archive: archive, format: format, level: level, password: password, encryptHeaders: encryptHeaders)
-        _ = try await run(args, operation: .add)
+    func add(items: [URL], options: Dialogs.AddOptions, progress: BackendProgress?) async throws {
+        let args = SevenZipCommandBuilder.add(items: items, options: options)
+        _ = try await run(args, operation: .add, progress: progress)
     }
 
-    func test(archive: URL, password: String?) async throws {
-        _ = try await run(SevenZipCommandBuilder.test(archive: archive, password: password), operation: .test)
+    func test(archive: URL, password: String?, progress: BackendProgress?) async throws {
+        _ = try await run(SevenZipCommandBuilder.test(archive: archive, password: password), operation: .test, progress: progress)
     }
 
-    func delete(archive: URL, entries: [ArchiveEntry]) async throws {
-        _ = try await run(SevenZipCommandBuilder.delete(archive: archive, entries: entries), operation: .delete)
+    func delete(archive: URL, entries: [ArchiveEntry], progress: BackendProgress?) async throws {
+        _ = try await run(SevenZipCommandBuilder.delete(archive: archive, entries: entries), operation: .delete, progress: progress)
     }
 
-    func rename(archive: URL, entry: ArchiveEntry, to newPath: String) async throws {
-        _ = try await run(SevenZipCommandBuilder.rename(archive: archive, entry: entry, to: newPath), operation: .rename)
+    func rename(archive: URL, entry: ArchiveEntry, to newPath: String, progress: BackendProgress?) async throws {
+        _ = try await run(SevenZipCommandBuilder.rename(archive: archive, entry: entry, to: newPath), operation: .rename, progress: progress)
     }
 
     @discardableResult
-    private func run(_ arguments: [String], operation: ArchiveOperation) async throws -> ProcessResult {
+    private func run(_ arguments: [String], operation: ArchiveOperation, progress: BackendProgress?) async throws -> ProcessResult {
         let info = self.info
         return try await ProcessRunner.run(
             executableURL: info.executableURL,
             arguments: arguments,
+            outputHandler: progress,
             failure: { exitCode, output, errorOutput in
                 SevenZipFailure(operation: operation, backend: info, exitCode: exitCode, output: output, errorOutput: errorOutput)
             }
@@ -145,6 +174,7 @@ enum ProcessRunner {
     static func run(
         executableURL: URL,
         arguments: [String],
+        outputHandler: BackendProgress? = nil,
         failure: @escaping @Sendable (_ exitCode: Int32, _ output: String, _ errorOutput: String) -> any Error
     ) async throws -> ProcessResult {
         let state = ProcessRunState()
@@ -158,20 +188,29 @@ enum ProcessRunner {
 
                 let stdout = Pipe()
                 let stderr = Pipe()
+                let output = ProcessOutputAccumulator(outputHandler: outputHandler)
                 process.standardOutput = stdout
                 process.standardError = stderr
+                stdout.fileHandleForReading.readabilityHandler = { fileHandle in
+                    output.append(fileHandle.availableData, isErrorOutput: false)
+                }
+                stderr.fileHandleForReading.readabilityHandler = { fileHandle in
+                    output.append(fileHandle.availableData, isErrorOutput: true)
+                }
 
                 process.terminationHandler = { process in
-                    let output = String(data: stdout.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-                    let errorOutput = String(data: stderr.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
-                    let result = ProcessResult(exitCode: process.terminationStatus, output: output, errorOutput: errorOutput)
+                    stdout.fileHandleForReading.readabilityHandler = nil
+                    stderr.fileHandleForReading.readabilityHandler = nil
+                    output.append(stdout.fileHandleForReading.readDataToEndOfFile(), isErrorOutput: false)
+                    output.append(stderr.fileHandleForReading.readDataToEndOfFile(), isErrorOutput: true)
+                    let result = ProcessResult(exitCode: process.terminationStatus, output: output.standardOutput, errorOutput: output.errorOutput)
 
                     if process.terminationStatus == 0 {
                         state.resume(returning: result)
                     } else if state.isCancelled {
                         state.resume(throwing: CancellationError())
                     } else {
-                        state.resume(throwing: failure(process.terminationStatus, output, errorOutput))
+                        state.resume(throwing: failure(process.terminationStatus, result.output, result.errorOutput))
                     }
                 }
 
@@ -185,6 +224,54 @@ enum ProcessRunner {
         } onCancel: {
             state.cancel()
         }
+    }
+}
+
+private final class ProcessOutputAccumulator: @unchecked Sendable {
+    private let lock = NSLock()
+    private var outputData = Data()
+    private var errorData = Data()
+    private let outputHandler: BackendProgress?
+
+    var standardOutput: String {
+        string(isErrorOutput: false)
+    }
+
+    var errorOutput: String {
+        string(isErrorOutput: true)
+    }
+
+    init(outputHandler: BackendProgress?) {
+        self.outputHandler = outputHandler
+    }
+
+    func append(_ data: Data, isErrorOutput: Bool) {
+        guard !data.isEmpty else { return }
+        lock.lock()
+        if isErrorOutput {
+            errorData.append(data)
+        } else {
+            outputData.append(data)
+        }
+        lock.unlock()
+
+        guard let outputHandler, let text = String(data: data, encoding: .utf8) else { return }
+        for line in Self.statusLines(from: text) {
+            outputHandler(line)
+        }
+    }
+
+    private func string(isErrorOutput: Bool) -> String {
+        lock.lock()
+        let copy = isErrorOutput ? errorData : outputData
+        lock.unlock()
+        return String(data: copy, encoding: .utf8) ?? ""
+    }
+
+    private static func statusLines(from text: String) -> [String] {
+        text.components(separatedBy: CharacterSet(charactersIn: "\r\n"))
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
     }
 }
 
