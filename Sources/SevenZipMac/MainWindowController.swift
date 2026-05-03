@@ -435,6 +435,22 @@ final class MainWindowController: NSWindowController {
         setBusy(false, message: "\(allEntries.count) entries loaded from \(url.lastPathComponent)")
     }
 
+    func smokeTestNavigate(to path: String) throws {
+        let normalized = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        guard allEntries.contains(where: { entry in
+            entry.isDirectory && entry.path.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == normalized
+        }) else {
+            throw NSError(
+                domain: "SevenZipMacSmokeTest",
+                code: 4,
+                userInfo: [NSLocalizedDescriptionKey: "Archive folder not found: \(path)"]
+            )
+        }
+
+        currentPath = normalized
+        refreshVisibleEntries()
+    }
+
     @objc private func openSelectedEntry() {
         let row = tableView.clickedRow >= 0 ? tableView.clickedRow : tableView.selectedRow
         guard row >= 0 && row < visibleEntries.count else { return }

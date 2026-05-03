@@ -14,6 +14,14 @@ make build
 
 `make build-backend` compiles the official 7-Zip `Alone2` target and copies the generated `7zz` into `Resources/7zz`. The binary is ignored by git and bundled into the app during `make build`.
 
+## Test
+
+```bash
+make test
+```
+
+The self-test target runs parser and smoke-argument checks without requiring XCTest. GUI smoke reports can be run from the built app with `--gui-smoke-report`, optionally combined with `--gui-smoke-archive` and `--gui-smoke-navigate`.
+
 ## Run
 
 ```bash

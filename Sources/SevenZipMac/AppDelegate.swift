@@ -78,6 +78,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     if let archiveURL = smokeConfiguration.archiveURL {
                         try await mainWindowController.smokeTestOpenArchive(archiveURL)
                     }
+                    if let navigationPath = smokeConfiguration.navigationPath {
+                        try mainWindowController.smokeTestNavigate(to: navigationPath)
+                    }
                     try SmokeTest.writeReport(for: mainWindowController, to: smokeConfiguration.reportURL)
                 } catch {
                     let failureURL = smokeConfiguration.reportURL.deletingPathExtension().appendingPathExtension("error.txt")

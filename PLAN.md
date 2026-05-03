@@ -1,10 +1,10 @@
 # Native macOS 7-Zip GUI Port
 
 ## Summary
-Build a new Swift Package Manager macOS 14+ app in `voice-input-src`, using the README-described harness style: Makefile-driven build/run/install/clean, signed `.app` bundle output, and no Electron/Tauri dependency. The app will be a native AppKit file-manager style port of 7-Zip File Manager workflows, backed by command-line 7-Zip engines instead of attempting to compile Win32 UI code.
+Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app` repository, using the README-described harness style from `voice-input-src`: Makefile-driven build/run/install/clean, signed `.app` bundle output, and no Electron/Tauri dependency. The app is a native AppKit file-manager style port of 7-Zip File Manager workflows, backed by command-line 7-Zip engines instead of attempting to compile Win32 UI code.
 
 ## Key Changes
-- Scaffold `voice-input-src` as a Swift/AppKit app with:
+- Scaffold `7zip-mac-app` as a Swift/AppKit app with:
   - Main browser window: path bar, toolbar, file/archive table, status bar.
   - Archive actions: Open, Add, Extract, Test, Delete, Rename where backend support allows.
   - Dialogs modeled after 7-Zip workflows: add/compress options, extract destination/options, password prompt, operation progress, error details.
@@ -20,7 +20,13 @@ Build a new Swift Package Manager macOS 14+ app in `voice-input-src`, using the 
 - Add packaging/build support:
   - `Makefile` targets: `build`, `run`, `install`, `clean`, `build-backend`.
   - `build-backend` compiles official macOS `7zz` from the checked-in `7zip` source and copies it into app resources.
-  - App bundle includes `Info.plist`, icon placeholder derived from existing 7-Zip assets where licensing permits, and local codesigning.
+- App bundle includes `Info.plist`, icon placeholder derived from existing 7-Zip assets where licensing permits, and local codesigning.
+
+## Current Status
+- Implemented native AppKit archive browser, toolbar workflows, backend selection, direct archive opening, and in-archive navigation.
+- Implemented bundled official `7zz` support plus p7zip/custom backend detection.
+- Added app-owned self-tests for parser and smoke argument behavior via `make test`.
+- Added GUI smoke reporting that captures the rendered window from inside the app for CLI-based verification on a non-headless Mac.
 
 ## Behavior Details
 - Opening an archive loads table rows via `list`; double-clicking folders navigates inside the archive, double-clicking files extracts to a temporary preview location and opens with Finder default app.

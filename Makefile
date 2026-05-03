@@ -10,7 +10,7 @@ SEVENZIP_ROOT := ../7zip
 OFFICIAL_BACKEND_DIR := $(SEVENZIP_ROOT)/CPP/7zip/Bundles/Alone2
 OFFICIAL_BACKEND := $(OFFICIAL_BACKEND_DIR)/b/m_x64/7zz
 
-.PHONY: build run install clean build-backend package
+.PHONY: build run install clean build-backend package test
 
 build: package
 
@@ -28,6 +28,9 @@ build-backend:
 
 run: package
 	open "$(APP_DIR)"
+
+test:
+	swift run $(EXECUTABLE) --self-test
 
 install: package
 	cp -R "$(APP_DIR)" "/Applications/$(APP_NAME).app"
