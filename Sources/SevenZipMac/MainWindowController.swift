@@ -379,6 +379,31 @@ final class MainWindowController: NSWindowController {
         }.joined(separator: "\n")
     }
 
+    func smokeTestSnapshot() -> [String: Any] {
+        let frame = window?.frame ?? .zero
+        let windowFrame: [String: CGFloat] = [
+            "x": frame.origin.x,
+            "y": frame.origin.y,
+            "width": frame.width,
+            "height": frame.height
+        ]
+
+        var report: [String: Any] = [:]
+        report["windowTitle"] = window?.title ?? ""
+        report["windowIsVisible"] = window?.isVisible ?? false
+        report["windowFrame"] = windowFrame
+        report["toolbarItems"] = window?.toolbar?.items.map(\.label) ?? []
+        report["pathText"] = pathField.stringValue
+        report["statusText"] = statusField.stringValue
+        report["tableColumnCount"] = tableView.tableColumns.count
+        report["tableColumns"] = tableView.tableColumns.map(\.title)
+        report["visibleEntryCount"] = visibleEntries.count
+        report["backendName"] = backend?.info.name ?? ""
+        report["backendPath"] = backend?.info.executableURL.path ?? ""
+        report["backendVersion"] = backend?.info.version ?? ""
+        return report
+    }
+
     @objc private func openSelectedEntry() {
         let row = tableView.clickedRow >= 0 ? tableView.clickedRow : tableView.selectedRow
         guard row >= 0 && row < visibleEntries.count else { return }
