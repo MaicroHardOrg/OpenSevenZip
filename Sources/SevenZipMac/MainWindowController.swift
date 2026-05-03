@@ -314,12 +314,69 @@ final class MainWindowController: NSWindowController {
     }
 
     @objc private func showBackendSettings() {
-        let candidates = BackendLocator.candidates().map { candidate in
+        var pathValue = BackendLocator.customBackendPath
+
+        while true {
+            let alert = NSAlert()
+            alert.messageText = "Backend Settings"
+            alert.informativeText = backend.map {
+                "Current: \($0.info.name)\n\($0.info.executableURL.path)\n\n\($0.info.version)"
+            } ?? "No active backend"
+            alert.addButton(withTitle: "Save")
+            alert.addButton(withTitle: "Choose...")
+            alert.addButton(withTitle: "Reset")
+            alert.addButton(withTitle: "Cancel")
+
+            let stack = NSStackView()
+            stack.orientation = .vertical
+            stack.spacing = 8
+            stack.translatesAutoresizingMaskIntoConstraints = false
+
+            let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 520, height: 24))
+            field.placeholderString = "Custom backend path, for example /usr/local/bin/7z"
+            field.stringValue = pathValue
+
+            let candidates = NSTextField(labelWithString: backendCandidateSummary())
+            candidates.lineBreakMode = .byWordWrapping
+            candidates.maximumNumberOfLines = 0
+
+            stack.addArrangedSubview(field)
+            stack.addArrangedSubview(candidates)
+            alert.accessoryView = stack
+            NSLayoutConstraint.activate([
+                stack.widthAnchor.constraint(equalToConstant: 560)
+            ])
+
+            let response = alert.runModal()
+            switch response {
+            case .alertFirstButtonReturn:
+                BackendLocator.setCustomBackendPath(field.stringValue)
+                Task { await detectBackend() }
+                return
+            case .alertSecondButtonReturn:
+                let panel = NSOpenPanel()
+                panel.title = "Choose 7-Zip Backend"
+                panel.canChooseFiles = true
+                panel.canChooseDirectories = false
+                panel.allowsMultipleSelection = false
+                if panel.runModal() == .OK, let url = panel.url {
+                    pathValue = url.path
+                }
+            case .alertThirdButtonReturn:
+                BackendLocator.resetCustomBackendPath()
+                Task { await detectBackend() }
+                return
+            default:
+                return
+            }
+        }
+    }
+
+    private func backendCandidateSummary() -> String {
+        BackendLocator.candidates().map { candidate in
             let exists = FileManager.default.isExecutableFile(atPath: candidate.url.path) ? "available" : "missing"
             return "\(candidate.name): \(candidate.url.path) (\(exists))"
         }.joined(separator: "\n")
-        let current = backend.map { "Current: \($0.info.name)\n\($0.info.executableURL.path)\n\n\($0.info.version)" } ?? "No active backend"
-        Dialogs.showInfo("Backend Settings", detail: "\(current)\n\nDetected candidates:\n\(candidates)", in: window)
     }
 
     @objc private func openSelectedEntry() {

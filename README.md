@@ -35,7 +35,7 @@ dist/7-Zip.app
 - Test archive integrity.
 - Delete selected archive entries where the backend supports it.
 - Password prompts for listing, extracting, testing, and creating encrypted archives.
-- Backend status and candidate detection view.
+- Backend settings with persisted custom executable path, reset-to-autodetect, and candidate detection.
 
 ## Notes
 

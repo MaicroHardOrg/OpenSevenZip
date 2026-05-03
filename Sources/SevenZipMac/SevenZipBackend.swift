@@ -71,7 +71,27 @@ final class CommandLineSevenZipBackend: SevenZipBackend {
     }
 }
 
+@MainActor
 enum BackendLocator {
+    private static let customBackendPathKey = "CustomBackendPath"
+
+    static var customBackendPath: String {
+        UserDefaults.standard.string(forKey: customBackendPathKey) ?? ""
+    }
+
+    static func setCustomBackendPath(_ path: String) {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            resetCustomBackendPath()
+        } else {
+            UserDefaults.standard.set(trimmed, forKey: customBackendPathKey)
+        }
+    }
+
+    static func resetCustomBackendPath() {
+        UserDefaults.standard.removeObject(forKey: customBackendPathKey)
+    }
+
     static func defaultBackend() async -> SevenZipBackend? {
         for candidate in candidates() {
             guard FileManager.default.isExecutableFile(atPath: candidate.url.path) else { continue }
@@ -90,6 +110,11 @@ enum BackendLocator {
     static func candidates() -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
         var values: [(String, URL, BackendCapabilities)] = []
         let fullCapabilities: BackendCapabilities = [.list, .extract, .add, .test, .delete]
+
+        if !customBackendPath.isEmpty {
+            values.append(("Custom 7-Zip", URL(fileURLWithPath: customBackendPath), fullCapabilities))
+        }
+
         if let resourceURL = Bundle.main.resourceURL {
             values.append(("Official 7-Zip", resourceURL.appendingPathComponent("7zz"), fullCapabilities))
         }
