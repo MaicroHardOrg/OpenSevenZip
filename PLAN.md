@@ -25,6 +25,7 @@ Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app
 ## Current Status
 - Implemented native AppKit archive browser, toolbar workflows, backend selection, direct archive opening, and in-archive navigation.
 - Implemented bundled official `7zz` support plus p7zip/custom backend detection.
+- Implemented Open, Add, Extract, Test, Delete, Rename, Password, and Backend toolbar workflows.
 - Added app-owned self-tests for parser and smoke argument behavior via `make test`.
 - Added GUI smoke reporting that captures the rendered window from inside the app for CLI-based verification on a non-headless Mac.
 - Added command-construction and backend-priority self-tests covering spaces, Unicode paths, selected entries, passwords, overwrite modes, encrypted-header flags, and p7zip fallback order.
@@ -47,7 +48,7 @@ Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app
   - Done: verify backend priority and fallback order for custom, bundled `7zz`, and p7zip binaries.
   - Done: verify command construction for spaces, Unicode paths, selected entries, passwords, overwrite mode, and encrypted headers.
 - Integration scenarios:
-  - Done: create `.7z` and `.zip`, list contents, extract selected files, and test archive integrity.
+  - Done: create `.7z` and `.zip`, list contents, extract selected files, rename an entry, and test archive integrity.
   - Done: open password-protected archives with the correct password and handle wrong password errors.
   - Done: confirm p7zip at `/usr/local/bin/7z`, `/usr/local/bin/7za`, and `/usr/local/bin/7zr` is detected on this machine.
 - UI acceptance:

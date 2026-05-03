@@ -49,6 +49,7 @@ open dist/7-Zip.app --args /path/to/archive.7z
 - Extract selected entries or the whole archive.
 - Test archive integrity.
 - Delete selected archive entries where the backend supports it.
+- Rename a selected archive entry where the backend supports it.
 - Password prompts for listing, extracting, testing, and creating encrypted archives.
 - Backend settings with persisted custom executable path, reset-to-autodetect, and candidate detection.
 

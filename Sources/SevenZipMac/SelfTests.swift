@@ -127,6 +127,15 @@ enum SelfTests {
             SevenZipCommandBuilder.delete(archive: archive, entries: entries) == ["d", archive.path, "src/docs/beta file.txt", "unicodé/名前.txt"],
             "delete command preserves selected paths"
         )
+        try expect(
+            SevenZipCommandBuilder.rename(archive: archive, entry: entries[0], to: "src/docs/renamed file.txt") == [
+                "rn",
+                archive.path,
+                "src/docs/beta file.txt",
+                "src/docs/renamed file.txt"
+            ],
+            "rename command preserves old and new paths"
+        )
     }
 
     private static func commandBuilderHandlesOverwriteModesAndHeaderEncryption() throws {
@@ -179,7 +188,7 @@ enum SelfTests {
         )
         try expect(candidates[0].url.path == "/opt/local/bin/7zz-custom", "custom backend path")
         try expect(candidates[1].url.path == "/Applications/7-Zip.app/Contents/Resources/7zz", "official backend resource path")
-        try expect(candidates.allSatisfy { $0.capabilities.contains([.list, .extract, .add, .test, .delete]) }, "backend capabilities")
+        try expect(candidates.allSatisfy { $0.capabilities.contains([.list, .extract, .add, .test, .delete, .rename]) }, "backend capabilities")
 
         let fallbackOnly = BackendLocator.candidateList(customBackendPath: "", resourceURL: nil)
         try expect(fallbackOnly.map(\.name) == ["p7zip 7z", "p7zip 7za", "p7zip 7zr"], "p7zip fallback priority")

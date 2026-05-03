@@ -36,6 +36,10 @@ enum SevenZipCommandBuilder {
         return args
     }
 
+    static func rename(archive: URL, entry: ArchiveEntry, to newPath: String) -> [String] {
+        ["rn", archive.path, entry.path, newPath]
+    }
+
     private static func appendPassword(_ password: String?, to args: inout [String]) {
         if let password, !password.isEmpty {
             args.append("-p\(password)")

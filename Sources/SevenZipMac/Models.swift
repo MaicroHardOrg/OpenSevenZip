@@ -29,6 +29,7 @@ struct BackendCapabilities: OptionSet, Sendable {
     static let add = BackendCapabilities(rawValue: 1 << 2)
     static let test = BackendCapabilities(rawValue: 1 << 3)
     static let delete = BackendCapabilities(rawValue: 1 << 4)
+    static let rename = BackendCapabilities(rawValue: 1 << 5)
 }
 
 struct BackendInfo: Equatable, Sendable {
@@ -44,6 +45,7 @@ enum ArchiveOperation: Sendable {
     case add
     case test
     case delete
+    case rename
 
     var description: String {
         switch self {
@@ -52,6 +54,7 @@ enum ArchiveOperation: Sendable {
         case .add: "add"
         case .test: "test"
         case .delete: "delete"
+        case .rename: "rename"
         }
     }
 }

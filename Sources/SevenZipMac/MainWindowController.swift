@@ -327,6 +327,42 @@ final class MainWindowController: NSWindowController {
         }
     }
 
+    @objc private func renameSelected() {
+        guard let backend, let archiveURL else {
+            Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
+            return
+        }
+        let entries = selectedEntries()
+        guard entries.count == 1, let entry = entries.first else { return }
+
+        let alert = NSAlert()
+        alert.messageText = "Rename Entry"
+        alert.informativeText = entry.path
+        alert.addButton(withTitle: "Rename")
+        alert.addButton(withTitle: "Cancel")
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 520, height: 24))
+        field.stringValue = entry.path
+        alert.accessoryView = field
+
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        let newPath = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !newPath.isEmpty, newPath != entry.path else { return }
+
+        Task {
+            do {
+                setBusy(true, message: "Renaming \(entry.name)...")
+                try await backend.rename(archive: archiveURL, entry: entry, to: newPath)
+                allEntries = try await backend.list(archive: archiveURL, password: nil)
+                refreshVisibleEntries()
+                setBusy(false, message: "Renamed \(entry.name)")
+            } catch {
+                setBusy(false, message: "Rename failed")
+                Dialogs.showError(error, in: window)
+            }
+        }
+    }
+
     @objc private func showBackendSettings() {
         var pathValue = BackendLocator.customBackendPath
 
@@ -547,11 +583,11 @@ extension MainWindowController: NSTableViewDataSource, NSTableViewDelegate {
 
 extension MainWindowController: NSToolbarDelegate {
     nonisolated func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.openArchive, .addFiles, .extract, .testArchive, .deleteEntry, .password, .backendSettings, .flexibleSpace]
+        [.openArchive, .addFiles, .extract, .testArchive, .renameEntry, .deleteEntry, .password, .backendSettings, .flexibleSpace]
     }
 
     nonisolated func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.openArchive, .addFiles, .extract, .testArchive, .deleteEntry, .flexibleSpace, .password, .backendSettings]
+        [.openArchive, .addFiles, .extract, .testArchive, .renameEntry, .deleteEntry, .flexibleSpace, .password, .backendSettings]
     }
 
     nonisolated func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
@@ -566,6 +602,8 @@ extension MainWindowController: NSToolbarDelegate {
                 configure(item, label: "Extract", image: "arrow.down.doc", action: #selector(extractSelected))
             case .testArchive:
                 configure(item, label: "Test", image: "checkmark.seal", action: #selector(testArchive))
+            case .renameEntry:
+                configure(item, label: "Rename", image: "pencil", action: #selector(renameSelected))
             case .deleteEntry:
                 configure(item, label: "Delete", image: "trash", action: #selector(deleteSelected))
             case .password:
@@ -594,6 +632,7 @@ private extension NSToolbarItem.Identifier {
     static let addFiles = NSToolbarItem.Identifier("AddFiles")
     static let extract = NSToolbarItem.Identifier("Extract")
     static let testArchive = NSToolbarItem.Identifier("TestArchive")
+    static let renameEntry = NSToolbarItem.Identifier("RenameEntry")
     static let deleteEntry = NSToolbarItem.Identifier("DeleteEntry")
     static let password = NSToolbarItem.Identifier("Password")
     static let backendSettings = NSToolbarItem.Identifier("BackendSettings")

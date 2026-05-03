@@ -7,6 +7,7 @@ protocol SevenZipBackend: Sendable {
     func add(items: [URL], archive: URL, format: String, level: Int, password: String?, encryptHeaders: Bool) async throws
     func test(archive: URL, password: String?) async throws
     func delete(archive: URL, entries: [ArchiveEntry]) async throws
+    func rename(archive: URL, entry: ArchiveEntry, to newPath: String) async throws
 }
 
 final class CommandLineSevenZipBackend: SevenZipBackend, @unchecked Sendable {
@@ -37,6 +38,10 @@ final class CommandLineSevenZipBackend: SevenZipBackend, @unchecked Sendable {
 
     func delete(archive: URL, entries: [ArchiveEntry]) async throws {
         _ = try await run(SevenZipCommandBuilder.delete(archive: archive, entries: entries), operation: .delete)
+    }
+
+    func rename(archive: URL, entry: ArchiveEntry, to newPath: String) async throws {
+        _ = try await run(SevenZipCommandBuilder.rename(archive: archive, entry: entry, to: newPath), operation: .rename)
     }
 
     @discardableResult
@@ -92,7 +97,7 @@ enum BackendLocator {
     }
 
     static func candidateList(customBackendPath: String, resourceURL: URL?) -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
-        let fullCapabilities: BackendCapabilities = [.list, .extract, .add, .test, .delete]
+        let fullCapabilities: BackendCapabilities = [.list, .extract, .add, .test, .delete, .rename]
         var values: [(String, URL, BackendCapabilities)] = []
 
         if !customBackendPath.isEmpty {
