@@ -53,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 skipNext = false
                 continue
             }
-            if argument == "--gui-smoke-report" || argument == "--gui-smoke-archive" || argument == "--gui-smoke-navigate" || argument == "--gui-smoke-password" {
+            if argument == "--gui-smoke-report" || argument == "--gui-smoke-archive" || argument == "--gui-smoke-navigate" || argument == "--gui-smoke-password" || argument == "--gui-smoke-up" {
                 skipNext = true
                 continue
             }
@@ -80,6 +80,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                     if let navigationPath = smokeConfiguration.navigationPath {
                         try mainWindowController.smokeTestNavigate(to: navigationPath)
+                    }
+                    for _ in 0..<smokeConfiguration.upCount {
+                        mainWindowController.smokeTestGoUp()
                     }
                     try SmokeTest.writeReport(for: mainWindowController, to: smokeConfiguration.reportURL)
                 } catch {

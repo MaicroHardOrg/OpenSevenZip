@@ -44,7 +44,7 @@ open dist/7-Zip.app --args /path/to/archive.7z
 
 - Open archives from the app, Finder/Open With, or a launch argument.
 - Open an archive and list entries using `7z l -slt`.
-- Navigate folders inside archives.
+- Navigate folders inside archives, and use Up at archive root to browse the archive's parent folder.
 - Add files/folders to a new archive.
 - Extract selected entries or the whole archive.
 - Test archive integrity.

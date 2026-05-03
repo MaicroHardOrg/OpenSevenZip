@@ -10,9 +10,11 @@ final class MainWindowController: NSWindowController {
 
     private var backend: SevenZipBackend?
     private var archiveURL: URL?
+    private var currentDirectoryURL: URL?
     private var allEntries: [ArchiveEntry] = []
     private var currentPath = ""
     private var visibleEntries: [ArchiveEntry] = []
+    private static let archiveExtensions: Set<String> = ["7z", "zip", "rar", "tar", "gz", "tgz", "bz2", "xz", "zst", "cab", "iso", "dmg"]
 
     convenience init() {
         let window = NSWindow(
@@ -165,6 +167,11 @@ final class MainWindowController: NSWindowController {
     }
 
     private func refreshVisibleEntries() {
+        guard archiveURL != nil else {
+            tableView.reloadData()
+            return
+        }
+
         let children = allEntries.filter { entry in
             if currentPath.isEmpty {
                 return entry.parentPath.isEmpty
@@ -178,6 +185,49 @@ final class MainWindowController: NSWindowController {
         visibleEntries = children
         pathField.stringValue = archiveURL.map { "\($0.path)\(currentPath.isEmpty ? "" : " / \(currentPath)")" } ?? "No archive open"
         tableView.reloadData()
+    }
+
+    private func showDirectory(_ url: URL) {
+        archiveURL = nil
+        currentDirectoryURL = url
+        allEntries = []
+        currentPath = ""
+
+        do {
+            let keys: Set<URLResourceKey> = [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .isHiddenKey]
+            let urls = try FileManager.default.contentsOfDirectory(
+                at: url,
+                includingPropertiesForKeys: Array(keys),
+                options: [.skipsPackageDescendants]
+            )
+
+            visibleEntries = urls.compactMap { itemURL in
+                let values = try? itemURL.resourceValues(forKeys: keys)
+                let isDirectory = values?.isDirectory == true
+                return ArchiveEntry(
+                    path: itemURL.path,
+                    size: isDirectory ? nil : Int64(values?.fileSize ?? 0),
+                    packedSize: nil,
+                    modified: values?.contentModificationDate,
+                    attributes: isDirectory ? "D" : "A",
+                    encrypted: false,
+                    isDirectory: isDirectory
+                )
+            }.sorted {
+                if $0.isDirectory != $1.isDirectory { return $0.isDirectory && !$1.isDirectory }
+                return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+            }
+
+            pathField.stringValue = url.path
+            tableView.reloadData()
+            setBusy(false, message: "\(visibleEntries.count) items in \(url.path)")
+        } catch {
+            visibleEntries = []
+            pathField.stringValue = url.path
+            tableView.reloadData()
+            setBusy(false, message: "Cannot open folder")
+            Dialogs.showError(error, in: window)
+        }
     }
 
     private func selectedEntries() -> [ArchiveEntry] {
@@ -202,6 +252,7 @@ final class MainWindowController: NSWindowController {
     }
 
     func openArchive(at url: URL) {
+        currentDirectoryURL = nil
         archiveURL = url
         reloadArchive()
     }
@@ -268,6 +319,7 @@ final class MainWindowController: NSWindowController {
             do {
                 setBusy(true, message: "Creating \(archive.lastPathComponent)...")
                 try await backend.add(items: openPanel.urls, archive: archive, format: archive.pathExtension.isEmpty ? "7z" : archive.pathExtension, level: 5, password: password, encryptHeaders: true)
+                currentDirectoryURL = nil
                 archiveURL = archive
                 allEntries = try await backend.list(archive: archive, password: password)
                 refreshVisibleEntries()
@@ -452,6 +504,7 @@ final class MainWindowController: NSWindowController {
         report["backendPath"] = backend?.info.executableURL.path ?? ""
         report["backendVersion"] = backend?.info.version ?? ""
         report["archivePath"] = archiveURL?.path ?? ""
+        report["directoryPath"] = currentDirectoryURL?.path ?? ""
         report["allEntryCount"] = allEntries.count
         report["visibleEntryNames"] = visibleEntries.map(\.name)
         report["visibleEntryPaths"] = visibleEntries.map(\.path)
@@ -464,6 +517,7 @@ final class MainWindowController: NSWindowController {
         }
 
         archiveURL = url
+        currentDirectoryURL = nil
         setBusy(true, message: "Listing \(url.lastPathComponent)...")
         allEntries = try await backend.list(archive: url, password: password)
         currentPath = ""
@@ -487,12 +541,18 @@ final class MainWindowController: NSWindowController {
         refreshVisibleEntries()
     }
 
+    func smokeTestGoUp() {
+        goUp()
+    }
+
     @objc private func openSelectedEntry() {
         let row = tableView.clickedRow >= 0 ? tableView.clickedRow : tableView.selectedRow
         guard row >= 0 && row < visibleEntries.count else { return }
         let entry = visibleEntries[row]
 
-        if entry.isDirectory {
+        if archiveURL == nil {
+            openFileSystemEntry(entry)
+        } else if entry.isDirectory {
             currentPath = entry.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
             refreshVisibleEntries()
         } else {
@@ -501,13 +561,36 @@ final class MainWindowController: NSWindowController {
     }
 
     @objc private func goUp() {
-        guard !currentPath.isEmpty else { return }
+        if currentPath.isEmpty, let archiveURL {
+            showDirectory(archiveURL.deletingLastPathComponent())
+            return
+        }
+
+        if archiveURL == nil, let currentDirectoryURL {
+            let parent = currentDirectoryURL.deletingLastPathComponent()
+            if parent.path != currentDirectoryURL.path {
+                showDirectory(parent)
+            }
+            return
+        }
+
         if let slash = currentPath.lastIndex(of: "/") {
             currentPath = String(currentPath[..<slash])
         } else {
             currentPath = ""
         }
         refreshVisibleEntries()
+    }
+
+    private func openFileSystemEntry(_ entry: ArchiveEntry) {
+        let url = URL(fileURLWithPath: entry.path)
+        if entry.isDirectory {
+            showDirectory(url)
+        } else if Self.archiveExtensions.contains(url.pathExtension.lowercased()) {
+            openArchive(at: url)
+        } else {
+            NSWorkspace.shared.open(url)
+        }
     }
 
     private func preview(_ entry: ArchiveEntry) {
