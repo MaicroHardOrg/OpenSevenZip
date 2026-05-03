@@ -51,7 +51,43 @@ enum SevenZipParser {
         }
 
         flush()
-        return entries.filter { $0.path != "." }
+        return entriesWithSyntheticDirectories(from: entries.filter { $0.path != "." })
+    }
+
+    private static func entriesWithSyntheticDirectories(from entries: [ArchiveEntry]) -> [ArchiveEntry] {
+        var existingPaths = Set(entries.map { normalizedPath($0.path) })
+        var syntheticDirectories: [ArchiveEntry] = []
+
+        for entry in entries {
+            let path = normalizedPath(entry.path)
+            let components = path.split(separator: "/").map(String.init)
+            guard components.count > 1 else { continue }
+
+            var directoryParts: [String] = []
+            for component in components.dropLast() {
+                directoryParts.append(component)
+                let directoryPath = directoryParts.joined(separator: "/")
+                guard !existingPaths.contains(directoryPath) else { continue }
+                existingPaths.insert(directoryPath)
+                syntheticDirectories.append(
+                    ArchiveEntry(
+                        path: directoryPath,
+                        size: nil,
+                        packedSize: nil,
+                        modified: entry.modified,
+                        attributes: "D",
+                        encrypted: false,
+                        isDirectory: true
+                    )
+                )
+            }
+        }
+
+        return entries + syntheticDirectories
+    }
+
+    private static func normalizedPath(_ path: String) -> String {
+        path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
     }
 
     private static func parseInt64(_ value: String?) -> Int64? {

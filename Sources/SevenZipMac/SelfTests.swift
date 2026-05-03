@@ -5,6 +5,7 @@ enum SelfTests {
         try parseTechnicalListWithFoldersFilesAndEncryption()
         try parserFlushesFinalEntryWithoutTrailingBlankLine()
         try parserDropsSyntheticDotEntry()
+        try parserSynthesizesMissingDirectories()
         try smokeConfigurationParsesArguments()
         try smokeConfigurationRequiresReportPath()
         try commandBuilderPreservesPathsPasswordsAndSelections()
@@ -73,6 +74,38 @@ enum SelfTests {
         let entries = SevenZipParser.parseTechnicalList(text)
 
         try expect(entries.map(\.path) == ["real.txt"], "drop dot entry")
+    }
+
+    private static func parserSynthesizesMissingDirectories() throws {
+        let text = """
+        Path = ProjectA/src/chapter-one.txt
+        Folder = -
+        Size = 22287
+        Packed Size = 7541
+        Modified = 2025-11-12 06:39:14
+        Attributes = -rw-r--r--
+        Encrypted = -
+
+        Path = Archive Samples/Batch 11/assets/diagram.txt
+        Folder = -
+        Size = 10
+        Packed Size = 5
+        Modified = 2025-11-12 06:39:20
+        Attributes = -rw-r--r--
+        Encrypted = -
+
+        """
+
+        let entries = SevenZipParser.parseTechnicalList(text)
+        let paths = Set(entries.map(\.path))
+
+        try expect(paths.contains("ProjectA"), "synthesized first-level directory")
+        try expect(paths.contains("ProjectA/src"), "synthesized nested directory")
+        try expect(paths.contains("Archive Samples"), "synthesized archive samples directory")
+        try expect(paths.contains("Archive Samples/Batch 11"), "synthesized directory with space")
+        try expect(paths.contains("Archive Samples/Batch 11/assets"), "synthesized deep directory")
+        try expect(entries.first { $0.path == "ProjectA" }?.isDirectory == true, "synthesized directory flag")
+        try expect(entries.filter(\.isDirectory).count == 5, "synthesized directory count")
     }
 
     private static func smokeConfigurationParsesArguments() throws {
