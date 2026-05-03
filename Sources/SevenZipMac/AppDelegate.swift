@@ -53,7 +53,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 skipNext = false
                 continue
             }
-            if argument == "--gui-smoke-report" || argument == "--gui-smoke-archive" || argument == "--gui-smoke-navigate" || argument == "--gui-smoke-password" || argument == "--gui-smoke-up" {
+            if argument == "--gui-smoke-report" || argument == "--gui-smoke-archive" || argument == "--gui-smoke-navigate" || argument == "--gui-smoke-password" || argument == "--gui-smoke-up" || argument == "--gui-smoke-sort" {
                 skipNext = true
                 continue
             }
@@ -83,6 +83,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     }
                     for _ in 0..<smokeConfiguration.upCount {
                         mainWindowController.smokeTestGoUp()
+                    }
+                    if let sortColumn = smokeConfiguration.sortColumn {
+                        mainWindowController.smokeTestSort(column: sortColumn, ascending: smokeConfiguration.sortAscending)
                     }
                     try SmokeTest.writeReport(for: mainWindowController, to: smokeConfiguration.reportURL)
                 } catch {

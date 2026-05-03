@@ -14,6 +14,7 @@ final class MainWindowController: NSWindowController {
     private var allEntries: [ArchiveEntry] = []
     private var currentPath = ""
     private var visibleEntries: [ArchiveEntry] = []
+    private var activeSortDescriptors: [NSSortDescriptor] = [NSSortDescriptor(key: "name", ascending: true)]
     private static let archiveExtensions: Set<String> = ["7z", "zip", "rar", "tar", "gz", "tgz", "bz2", "xz", "zst", "cab", "iso", "dmg"]
 
     convenience init() {
@@ -97,6 +98,7 @@ final class MainWindowController: NSWindowController {
         addColumn("modified", title: "Modified", width: 180)
         addColumn("attributes", title: "Attr", width: 80)
         addColumn("encrypted", title: "Encrypted", width: 90)
+        tableView.sortDescriptors = activeSortDescriptors
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
@@ -107,6 +109,7 @@ final class MainWindowController: NSWindowController {
         let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(identifier))
         column.title = title
         column.width = width
+        column.sortDescriptorPrototype = NSSortDescriptor(key: identifier, ascending: true)
         tableView.addTableColumn(column)
     }
 
@@ -177,14 +180,62 @@ final class MainWindowController: NSWindowController {
                 return entry.parentPath.isEmpty
             }
             return entry.parentPath == currentPath
-        }.sorted {
-            if $0.isDirectory != $1.isDirectory { return $0.isDirectory && !$1.isDirectory }
-            return $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
 
-        visibleEntries = children
+        visibleEntries = sortedEntries(children)
         pathField.stringValue = archiveURL.map { "\($0.path)\(currentPath.isEmpty ? "" : " / \(currentPath)")" } ?? "No archive open"
         tableView.reloadData()
+    }
+
+    private func sortedEntries(_ entries: [ArchiveEntry]) -> [ArchiveEntry] {
+        let descriptors = activeSortDescriptors.isEmpty ? [NSSortDescriptor(key: "name", ascending: true)] : activeSortDescriptors
+        return entries.sorted { lhs, rhs in
+            if lhs.isDirectory != rhs.isDirectory { return lhs.isDirectory && !rhs.isDirectory }
+            for descriptor in descriptors {
+                let result = compare(lhs, rhs, using: descriptor)
+                if result != .orderedSame {
+                    return descriptor.ascending ? result == .orderedAscending : result == .orderedDescending
+                }
+            }
+            if lhs.isDirectory != rhs.isDirectory { return lhs.isDirectory && !rhs.isDirectory }
+            return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
+        }
+    }
+
+    private func compare(_ lhs: ArchiveEntry, _ rhs: ArchiveEntry, using descriptor: NSSortDescriptor) -> ComparisonResult {
+        switch descriptor.key {
+        case "size":
+            return compareOptional(lhs.size, rhs.size)
+        case "packed":
+            return compareOptional(lhs.packedSize, rhs.packedSize)
+        case "modified":
+            return compareOptional(lhs.modified, rhs.modified)
+        case "attributes":
+            return (lhs.attributes ?? "").localizedStandardCompare(rhs.attributes ?? "")
+        case "encrypted":
+            return compareBool(lhs.encrypted, rhs.encrypted)
+        default:
+            return lhs.name.localizedStandardCompare(rhs.name)
+        }
+    }
+
+    private func compareOptional<T: Comparable>(_ lhs: T?, _ rhs: T?) -> ComparisonResult {
+        switch (lhs, rhs) {
+        case let (lhs?, rhs?):
+            if lhs == rhs { return .orderedSame }
+            return lhs < rhs ? .orderedAscending : .orderedDescending
+        case (nil, nil):
+            return .orderedSame
+        case (nil, _?):
+            return .orderedAscending
+        case (_?, nil):
+            return .orderedDescending
+        }
+    }
+
+    private func compareBool(_ lhs: Bool, _ rhs: Bool) -> ComparisonResult {
+        if lhs == rhs { return .orderedSame }
+        return lhs ? .orderedDescending : .orderedAscending
     }
 
     private func showDirectory(_ url: URL) {
@@ -201,7 +252,7 @@ final class MainWindowController: NSWindowController {
                 options: [.skipsPackageDescendants]
             )
 
-            visibleEntries = urls.compactMap { itemURL in
+            let entries = urls.compactMap { itemURL in
                 let values = try? itemURL.resourceValues(forKeys: keys)
                 let isDirectory = values?.isDirectory == true
                 return ArchiveEntry(
@@ -213,10 +264,8 @@ final class MainWindowController: NSWindowController {
                     encrypted: false,
                     isDirectory: isDirectory
                 )
-            }.sorted {
-                if $0.isDirectory != $1.isDirectory { return $0.isDirectory && !$1.isDirectory }
-                return $0.name.localizedStandardCompare($1.name) == .orderedAscending
             }
+            visibleEntries = sortedEntries(entries)
 
             pathField.stringValue = url.path
             tableView.reloadData()
@@ -499,6 +548,12 @@ final class MainWindowController: NSWindowController {
         report["statusText"] = statusField.stringValue
         report["tableColumnCount"] = tableView.tableColumns.count
         report["tableColumns"] = tableView.tableColumns.map(\.title)
+        report["sortDescriptors"] = tableView.sortDescriptors.map { descriptor in
+            [
+                "key": descriptor.key ?? "",
+                "ascending": descriptor.ascending
+            ]
+        }
         report["visibleEntryCount"] = visibleEntries.count
         report["backendName"] = backend?.info.name ?? ""
         report["backendPath"] = backend?.info.executableURL.path ?? ""
@@ -543,6 +598,17 @@ final class MainWindowController: NSWindowController {
 
     func smokeTestGoUp() {
         goUp()
+    }
+
+    func smokeTestSort(column: String, ascending: Bool) {
+        let descriptor = NSSortDescriptor(key: column, ascending: ascending)
+        tableView.sortDescriptors = [descriptor]
+        activeSortDescriptors = [descriptor]
+        if archiveURL == nil, let currentDirectoryURL {
+            showDirectory(currentDirectoryURL)
+        } else {
+            refreshVisibleEntries()
+        }
     }
 
     @objc private func openSelectedEntry() {
@@ -617,6 +683,17 @@ final class MainWindowController: NSWindowController {
 extension MainWindowController: NSTableViewDataSource, NSTableViewDelegate {
     nonisolated func numberOfRows(in tableView: NSTableView) -> Int {
         MainActor.assumeIsolated { visibleEntries.count }
+    }
+
+    nonisolated func tableView(_ tableView: NSTableView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
+        MainActor.assumeIsolated {
+            activeSortDescriptors = tableView.sortDescriptors
+            if archiveURL == nil, let currentDirectoryURL {
+                showDirectory(currentDirectoryURL)
+            } else {
+                refreshVisibleEntries()
+            }
+        }
     }
 
     nonisolated func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {

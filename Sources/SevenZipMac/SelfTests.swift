@@ -87,7 +87,10 @@ enum SelfTests {
             "--gui-smoke-password",
             "secret",
             "--gui-smoke-up",
-            "2"
+            "2",
+            "--gui-smoke-sort",
+            "size",
+            "--gui-smoke-sort-desc"
         ])
 
         try expect(configuration?.reportURL.path == "/tmp/report.json", "smoke report path")
@@ -95,6 +98,8 @@ enum SelfTests {
         try expect(configuration?.navigationPath == "src/docs", "smoke navigation path")
         try expect(configuration?.password == "secret", "smoke password")
         try expect(configuration?.upCount == 2, "smoke up count")
+        try expect(configuration?.sortColumn == "size", "smoke sort column")
+        try expect(configuration?.sortAscending == false, "smoke sort direction")
     }
 
     private static func smokeConfigurationRequiresReportPath() throws {

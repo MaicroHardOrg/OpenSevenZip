@@ -7,6 +7,8 @@ enum SmokeTest {
         var navigationPath: String?
         var password: String?
         var upCount: Int
+        var sortColumn: String?
+        var sortAscending: Bool
     }
 
     static func configuration(from arguments: [String]) -> Configuration? {
@@ -16,7 +18,9 @@ enum SmokeTest {
             archiveURL: archiveURL(from: arguments),
             navigationPath: navigationPath(from: arguments),
             password: password(from: arguments),
-            upCount: upCount(from: arguments)
+            upCount: upCount(from: arguments),
+            sortColumn: sortColumn(from: arguments),
+            sortAscending: sortAscending(from: arguments)
         )
     }
 
@@ -53,6 +57,17 @@ enum SmokeTest {
         let valueIndex = arguments.index(after: index)
         guard valueIndex < arguments.endIndex else { return 0 }
         return Int(arguments[valueIndex]) ?? 0
+    }
+
+    static func sortColumn(from arguments: [String]) -> String? {
+        guard let index = arguments.firstIndex(of: "--gui-smoke-sort") else { return nil }
+        let valueIndex = arguments.index(after: index)
+        guard valueIndex < arguments.endIndex else { return nil }
+        return arguments[valueIndex]
+    }
+
+    static func sortAscending(from arguments: [String]) -> Bool {
+        !arguments.contains("--gui-smoke-sort-desc")
     }
 
     @MainActor
