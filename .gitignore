@@ -1,0 +1,4 @@
+.build/
+dist/
+Resources/7zz
+.DS_Store

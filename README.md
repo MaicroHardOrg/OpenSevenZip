@@ -1,0 +1,42 @@
+# 7-Zip for macOS
+
+Native macOS/AppKit GUI for 7-Zip archive workflows. The app is built with Swift Package Manager and wraps command-line 7-Zip backends:
+
+- Bundled official 7-Zip for macOS (`7zz`), built from the sibling `../7zip` source checkout.
+- Installed p7zip tools (`/usr/local/bin/7z`, `/usr/local/bin/7za`, `/usr/local/bin/7zr`) as fallback backends.
+
+## Build
+
+```bash
+make build-backend
+make build
+```
+
+`make build-backend` compiles the official 7-Zip `Alone2` target and copies the generated `7zz` into `Resources/7zz`. The binary is ignored by git and bundled into the app during `make build`.
+
+## Run
+
+```bash
+make run
+```
+
+The app bundle is written to:
+
+```text
+dist/7-Zip.app
+```
+
+## Current Features
+
+- Open an archive and list entries using `7z l -slt`.
+- Navigate folders inside archives.
+- Add files/folders to a new archive.
+- Extract selected entries or the whole archive.
+- Test archive integrity.
+- Delete selected archive entries where the backend supports it.
+- Password prompts for listing, extracting, testing, and creating encrypted archives.
+- Backend status and candidate detection view.
+
+## Notes
+
+This is an initial native port, not a Win32 UI compatibility layer. The UI follows the core 7-Zip File Manager workflows while using macOS controls and a backend abstraction over official 7-Zip/p7zip command-line tools.
