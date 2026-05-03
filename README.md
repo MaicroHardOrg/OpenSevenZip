@@ -47,8 +47,10 @@ open dist/7-Zip.app --args /path/to/archive.7z
 - Navigate folders inside archives, and use Up at archive root to browse the archive's parent folder.
 - Sort archive and folder listings by clicking table column headers.
 - Use table context menus and keyboard shortcuts for common open, extract, rename, delete, test, password, and backend actions.
+- Drag files onto an open archive to add them, or drag an archive/folder into the listing to open it.
 - Add files/folders to a new archive.
-- Extract selected entries or the whole archive.
+- Configure add format/compression/password options when creating an archive.
+- Extract selected entries or the whole archive with overwrite, password, and reveal-destination options.
 - Test archive integrity.
 - Delete selected archive entries where the backend supports it.
 - Rename a selected archive entry where the backend supports it.

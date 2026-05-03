@@ -10,11 +10,13 @@ final class MainWindowController: NSWindowController {
 
     private var backend: SevenZipBackend?
     private var archiveURL: URL?
+    private var archivePassword: String?
     private var currentDirectoryURL: URL?
     private var allEntries: [ArchiveEntry] = []
     private var currentPath = ""
     private var visibleEntries: [ArchiveEntry] = []
     private var activeSortDescriptors: [NSSortDescriptor] = [NSSortDescriptor(key: "name", ascending: true)]
+    private var previewDirectories: [URL] = []
     private static let archiveExtensions: Set<String> = ["7z", "zip", "rar", "tar", "gz", "tgz", "bz2", "xz", "zst", "cab", "iso", "dmg"]
 
     convenience init() {
@@ -38,6 +40,7 @@ final class MainWindowController: NSWindowController {
     private func setupWindow() {
         guard let window else { return }
         window.center()
+        window.delegate = self
         window.toolbar = makeToolbar()
         installMainMenu()
 
@@ -92,7 +95,9 @@ final class MainWindowController: NSWindowController {
         tableView.allowsMultipleSelection = true
         tableView.doubleAction = #selector(openSelectedEntry)
         tableView.target = self
+        tableView.dropTarget = self
         tableView.menu = makeContextMenu()
+        tableView.registerForDraggedTypes([.fileURL])
 
         addColumn("name", title: "Name", width: 390)
         addColumn("size", title: "Size", width: 110)
@@ -232,6 +237,7 @@ final class MainWindowController: NSWindowController {
             do {
                 setBusy(true, message: "Listing \(archiveURL.lastPathComponent)...")
                 allEntries = try await backend.list(archive: archiveURL, password: password)
+                archivePassword = password
                 currentPath = ""
                 refreshVisibleEntries()
                 setBusy(false, message: "\(allEntries.count) entries loaded from \(archiveURL.lastPathComponent)")
@@ -313,6 +319,7 @@ final class MainWindowController: NSWindowController {
 
     private func showDirectory(_ url: URL) {
         archiveURL = nil
+        archivePassword = nil
         currentDirectoryURL = url
         allEntries = []
         currentPath = ""
@@ -375,6 +382,7 @@ final class MainWindowController: NSWindowController {
 
     func openArchive(at url: URL) {
         currentDirectoryURL = nil
+        archivePassword = nil
         archiveURL = url
         reloadArchive()
     }
@@ -403,14 +411,25 @@ final class MainWindowController: NSWindowController {
         guard panel.runModal() == .OK, let destination = panel.url else { return }
 
         let entries = selectedEntries()
-        let password = Dialogs.askPassword(message: "Extract password", in: window)
+        guard let options = Dialogs.askExtractOptions(destination: destination, defaultPassword: archivePassword, in: window) else { return }
+        if options.password?.isEmpty == false {
+            archivePassword = options.password
+        }
 
         Task {
             do {
                 setBusy(true, message: "Extracting...")
-                try await backend.extract(archive: archiveURL, entries: entries, destination: destination, password: password, overwrite: true)
-                setBusy(false, message: "Extracted to \(destination.path)")
-                NSWorkspace.shared.activateFileViewerSelecting([destination])
+                try await backend.extract(
+                    archive: archiveURL,
+                    entries: entries,
+                    destination: options.destination,
+                    password: options.password,
+                    overwrite: options.overwrite
+                )
+                setBusy(false, message: "Extracted to \(options.destination.path)")
+                if options.openDestination {
+                    NSWorkspace.shared.activateFileViewerSelecting([options.destination])
+                }
             } catch {
                 setBusy(false, message: "Extract failed")
                 Dialogs.showError(error, in: window)
@@ -435,17 +454,25 @@ final class MainWindowController: NSWindowController {
         savePanel.title = "Create Archive"
         savePanel.nameFieldStringValue = "Archive.7z"
         guard savePanel.runModal() == .OK, let archive = savePanel.url else { return }
+        guard let options = Dialogs.askAddOptions(archive: archive, in: window) else { return }
 
-        let password = Dialogs.askPassword(message: "Archive password", in: window)
         Task {
             do {
-                setBusy(true, message: "Creating \(archive.lastPathComponent)...")
-                try await backend.add(items: openPanel.urls, archive: archive, format: archive.pathExtension.isEmpty ? "7z" : archive.pathExtension, level: 5, password: password, encryptHeaders: true)
+                setBusy(true, message: "Creating \(options.archive.lastPathComponent)...")
+                try await backend.add(
+                    items: openPanel.urls,
+                    archive: options.archive,
+                    format: options.format,
+                    level: options.level,
+                    password: options.password,
+                    encryptHeaders: options.encryptHeaders
+                )
                 currentDirectoryURL = nil
-                archiveURL = archive
-                allEntries = try await backend.list(archive: archive, password: password)
+                archivePassword = options.password
+                archiveURL = options.archive
+                allEntries = try await backend.list(archive: options.archive, password: options.password)
                 refreshVisibleEntries()
-                setBusy(false, message: "Created \(archive.lastPathComponent)")
+                setBusy(false, message: "Created \(options.archive.lastPathComponent)")
             } catch {
                 setBusy(false, message: "Add failed")
                 Dialogs.showError(error, in: window)
@@ -458,7 +485,8 @@ final class MainWindowController: NSWindowController {
             Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
             return
         }
-        let password = Dialogs.askPassword(message: "Test password", in: window)
+        let password = passwordForOperation(message: "Test password")
+        guard password != nil || archivePassword != nil else { return }
         Task {
             do {
                 setBusy(true, message: "Testing \(archiveURL.lastPathComponent)...")
@@ -491,7 +519,7 @@ final class MainWindowController: NSWindowController {
             do {
                 setBusy(true, message: "Deleting...")
                 try await backend.delete(archive: archiveURL, entries: entries)
-                allEntries = try await backend.list(archive: archiveURL, password: nil)
+                allEntries = try await backend.list(archive: archiveURL, password: archivePassword)
                 refreshVisibleEntries()
                 setBusy(false, message: "Deleted \(entries.count) entries")
             } catch {
@@ -527,7 +555,7 @@ final class MainWindowController: NSWindowController {
             do {
                 setBusy(true, message: "Renaming \(entry.name)...")
                 try await backend.rename(archive: archiveURL, entry: entry, to: newPath)
-                allEntries = try await backend.list(archive: archiveURL, password: nil)
+                allEntries = try await backend.list(archive: archiveURL, password: archivePassword)
                 refreshVisibleEntries()
                 setBusy(false, message: "Renamed \(entry.name)")
             } catch {
@@ -617,6 +645,9 @@ final class MainWindowController: NSWindowController {
         report["windowIsVisible"] = window?.isVisible ?? false
         report["windowFrame"] = windowFrame
         report["toolbarItems"] = window?.toolbar?.items.map(\.label) ?? []
+        report["registeredDragTypes"] = tableView.registeredDraggedTypes.map(\.rawValue)
+        report["hasDropTarget"] = tableView.dropTarget != nil
+        report["previewDirectoryCount"] = previewDirectories.count
         report["mainMenuItems"] = NSApp.mainMenu?.items.compactMap { item in
             item.submenu?.items.map(\.title)
         } ?? []
@@ -650,6 +681,7 @@ final class MainWindowController: NSWindowController {
 
         archiveURL = url
         currentDirectoryURL = nil
+        archivePassword = password
         setBusy(true, message: "Listing \(url.lastPathComponent)...")
         allEntries = try await backend.list(archive: url, password: password)
         currentPath = ""
@@ -736,6 +768,56 @@ final class MainWindowController: NSWindowController {
         }
     }
 
+    private func passwordForOperation(message: String) -> String? {
+        if let archivePassword {
+            return archivePassword
+        }
+        let password = Dialogs.askPassword(message: message, defaultValue: archivePassword, in: window)
+        if password?.isEmpty == false {
+            archivePassword = password
+        }
+        return password
+    }
+
+    func handleDroppedFileURLs(_ urls: [URL]) {
+        guard !urls.isEmpty else { return }
+
+        if archiveURL != nil {
+            addDroppedItems(urls)
+            return
+        }
+
+        if let archive = urls.first(where: { Self.archiveExtensions.contains($0.pathExtension.lowercased()) }) {
+            openArchive(at: archive)
+        } else if urls.count == 1, urls[0].hasDirectoryPath {
+            showDirectory(urls[0])
+        }
+    }
+
+    private func addDroppedItems(_ urls: [URL]) {
+        guard let backend, let archiveURL else { return }
+
+        Task {
+            do {
+                setBusy(true, message: "Adding \(urls.count) item\(urls.count == 1 ? "" : "s")...")
+                try await backend.add(
+                    items: urls,
+                    archive: archiveURL,
+                    format: archiveURL.pathExtension.isEmpty ? "7z" : archiveURL.pathExtension,
+                    level: 5,
+                    password: archivePassword,
+                    encryptHeaders: archivePassword?.isEmpty == false
+                )
+                allEntries = try await backend.list(archive: archiveURL, password: archivePassword)
+                refreshVisibleEntries()
+                setBusy(false, message: "Added \(urls.count) item\(urls.count == 1 ? "" : "s")")
+            } catch {
+                setBusy(false, message: "Drop add failed")
+                Dialogs.showError(error, in: window)
+            }
+        }
+    }
+
     private func preview(_ entry: ArchiveEntry) {
         guard let backend, let archiveURL else { return }
         let destination = FileManager.default.temporaryDirectory
@@ -745,14 +827,23 @@ final class MainWindowController: NSWindowController {
         Task {
             do {
                 try FileManager.default.createDirectory(at: destination, withIntermediateDirectories: true)
+                previewDirectories.append(destination)
                 setBusy(true, message: "Extracting preview...")
-                try await backend.extract(archive: archiveURL, entries: [entry], destination: destination, password: nil, overwrite: true)
+                try await backend.extract(archive: archiveURL, entries: [entry], destination: destination, password: archivePassword, overwrite: true)
                 setBusy(false, message: "Opened \(entry.name)")
                 NSWorkspace.shared.open(destination.appendingPathComponent(entry.path))
             } catch {
                 setBusy(false, message: "Preview failed")
                 Dialogs.showError(error, in: window)
             }
+        }
+    }
+
+    private func cleanupPreviewDirectories() {
+        let directories = previewDirectories
+        previewDirectories.removeAll()
+        for directory in directories {
+            try? FileManager.default.removeItem(at: directory)
         }
     }
 }
@@ -848,6 +939,14 @@ extension MainWindowController: NSMenuItemValidation {
     }
 }
 
+extension MainWindowController: NSWindowDelegate {
+    nonisolated func windowWillClose(_ notification: Notification) {
+        MainActor.assumeIsolated {
+            cleanupPreviewDirectories()
+        }
+    }
+}
+
 extension MainWindowController: NSToolbarDelegate {
     nonisolated func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
         [.openArchive, .addFiles, .extract, .testArchive, .renameEntry, .deleteEntry, .password, .backendSettings, .flexibleSpace]
@@ -906,6 +1005,8 @@ private extension NSToolbarItem.Identifier {
 }
 
 private final class ArchiveTableView: NSTableView {
+    weak var dropTarget: MainWindowController?
+
     override func menu(for event: NSEvent) -> NSMenu? {
         let point = convert(event.locationInWindow, from: nil)
         let clickedRow = row(at: point)
@@ -913,6 +1014,17 @@ private final class ArchiveTableView: NSTableView {
             selectRowIndexes(IndexSet(integer: clickedRow), byExtendingSelection: false)
         }
         return super.menu(for: event)
+    }
+
+    override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+        fileURLs(from: sender.draggingPasteboard).isEmpty ? [] : .copy
+    }
+
+    override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+        let urls = fileURLs(from: sender.draggingPasteboard)
+        guard !urls.isEmpty else { return false }
+        dropTarget?.handleDroppedFileURLs(urls)
+        return true
     }
 
     override func keyDown(with event: NSEvent) {
@@ -937,5 +1049,13 @@ private final class ArchiveTableView: NSTableView {
         default:
             super.keyDown(with: event)
         }
+    }
+
+    private func fileURLs(from pasteboard: NSPasteboard) -> [URL] {
+        let classes = [NSURL.self]
+        let options: [NSPasteboard.ReadingOptionKey: Any] = [
+            .urlReadingFileURLsOnly: true
+        ]
+        return pasteboard.readObjects(forClasses: classes, options: options) as? [URL] ?? []
     }
 }
