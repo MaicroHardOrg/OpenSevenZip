@@ -114,16 +114,20 @@ enum Dialogs {
     }
 
     static func askAddOptions(archive: URL, availableFormats: [String], in window: NSWindow?) -> AddOptions? {
-        let alert = NSAlert()
-        alert.messageText = "Archive Options"
-        alert.informativeText = archive.path
-        alert.addButton(withTitle: "Create")
-        alert.addButton(withTitle: "Cancel")
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 390),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = "Archive Options"
+        panel.isReleasedWhenClosed = false
 
-        let stack = NSGridView()
-        stack.rowSpacing = 8
-        stack.columnSpacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
+        let root = NSStackView()
+        root.orientation = .vertical
+        root.spacing = 14
+        root.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+        root.translatesAutoresizingMaskIntoConstraints = false
 
         let formatPopup = NSPopUpButton(frame: .zero)
         let formats = availableFormats.isEmpty ? ["7z"] : availableFormats
@@ -151,26 +155,70 @@ enum Dialogs {
         let excludeField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
         excludeField.placeholderString = "*.tmp, .DS_Store"
 
-        stack.addRow(with: [NSTextField(labelWithString: "Format"), formatPopup])
-        stack.addRow(with: [NSTextField(labelWithString: "Compression"), levelPopup])
-        stack.addRow(with: [NSTextField(labelWithString: "Password"), passwordField])
-        stack.addRow(with: [NSView(), encryptHeadersButton])
-        stack.addRow(with: [NSTextField(labelWithString: "Split volumes"), volumeField])
-        stack.addRow(with: [NSTextField(labelWithString: "Include"), includeField])
-        stack.addRow(with: [NSTextField(labelWithString: "Exclude"), excludeField])
-        alert.accessoryView = stack
+        let pathLabel = wrappingLabel(archive.path, width: 560)
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.spacing = 10
+        stack.translatesAutoresizingMaskIntoConstraints = false
+        stack.addArrangedSubview(formRow(label: "Format", control: formatPopup))
+        stack.addArrangedSubview(formRow(label: "Compression", control: levelPopup))
+        stack.addArrangedSubview(formRow(label: "Password", control: passwordField))
+        stack.addArrangedSubview(formRow(label: "", control: encryptHeadersButton))
+        stack.addArrangedSubview(formRow(label: "Split volumes", control: volumeField))
+        stack.addArrangedSubview(formRow(label: "Include", control: includeField))
+        stack.addArrangedSubview(formRow(label: "Exclude", control: excludeField))
+
+        let buttons = NSStackView()
+        buttons.orientation = .horizontal
+        buttons.alignment = .centerY
+        buttons.spacing = 10
+        buttons.translatesAutoresizingMaskIntoConstraints = false
+        let spacer = NSView()
+        let createButton = NSButton(title: "Create", target: nil, action: nil)
+        createButton.bezelStyle = .rounded
+        createButton.keyEquivalent = "\r"
+        let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+        cancelButton.bezelStyle = .rounded
+        cancelButton.keyEquivalent = "\u{1b}"
+        let createTarget = ModalButtonTarget(response: .OK)
+        let cancelTarget = ModalButtonTarget(response: .cancel)
+        createButton.target = createTarget
+        createButton.action = #selector(ModalButtonTarget.closeModal(_:))
+        cancelButton.target = cancelTarget
+        cancelButton.action = #selector(ModalButtonTarget.closeModal(_:))
+        buttons.addArrangedSubview(spacer)
+        buttons.addArrangedSubview(cancelButton)
+        buttons.addArrangedSubview(createButton)
+
+        root.addArrangedSubview(pathLabel)
+        root.addArrangedSubview(stack)
+        root.addArrangedSubview(buttons)
+
+        let contentView = NSView()
+        panel.contentView = contentView
+        contentView.addSubview(root)
         NSLayoutConstraint.activate([
-            stack.widthAnchor.constraint(equalToConstant: 420)
+            root.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            root.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            root.topAnchor.constraint(equalTo: contentView.topAnchor),
+            root.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            stack.widthAnchor.constraint(equalToConstant: 560),
+            spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 260)
         ])
 
-        let response: NSApplication.ModalResponse
         if let window {
-            response = alert.runSheetModal(for: window)
+            panel.centerRelative(to: window)
         } else {
-            response = alert.runModal()
+            panel.center()
         }
+        panel.makeKeyAndOrderFront(nil)
+        let response = NSApp.runModal(for: panel)
+        panel.orderOut(nil)
+        _ = createTarget
+        _ = cancelTarget
 
-        guard response == .alertFirstButtonReturn else { return nil }
+        guard response == .OK else { return nil }
         let selectedLevel = levelPopup.titleOfSelectedItem.flatMap { title -> Int? in
             guard let open = title.lastIndex(of: "("), let close = title.lastIndex(of: ")") else { return nil }
             return Int(title[title.index(after: open)..<close])
@@ -186,6 +234,60 @@ enum Dialogs {
             includePatterns: includeField.stringValue,
             excludePatterns: excludeField.stringValue
         )
+    }
+
+    private static func formRow(label title: String, control: NSView) -> NSStackView {
+        let row = NSStackView()
+        row.orientation = .horizontal
+        row.alignment = .centerY
+        row.spacing = 12
+        row.translatesAutoresizingMaskIntoConstraints = false
+
+        let label = NSTextField(labelWithString: title)
+        label.alignment = .right
+        label.lineBreakMode = .byTruncatingTail
+        row.addArrangedSubview(label)
+        row.addArrangedSubview(control)
+
+        NSLayoutConstraint.activate([
+            label.widthAnchor.constraint(equalToConstant: 112),
+            control.widthAnchor.constraint(equalToConstant: 300)
+        ])
+        return row
+    }
+
+    private static func wrappingLabel(_ text: String, width: CGFloat) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.lineBreakMode = .byTruncatingMiddle
+        label.maximumNumberOfLines = 1
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.widthAnchor.constraint(equalToConstant: width).isActive = true
+        return label
+    }
+}
+
+@MainActor
+final class ModalButtonTarget: NSObject {
+    private let response: NSApplication.ModalResponse
+
+    init(response: NSApplication.ModalResponse) {
+        self.response = response
+    }
+
+    @objc func closeModal(_ sender: Any?) {
+        NSApp.stopModal(withCode: response)
+        if let view = sender as? NSView {
+            view.window?.orderOut(nil)
+        }
+    }
+}
+
+extension NSWindow {
+    func centerRelative(to parent: NSWindow) {
+        let parentFrame = parent.frame
+        let x = parentFrame.midX - frame.width / 2
+        let y = parentFrame.midY - frame.height / 2
+        setFrameOrigin(NSPoint(x: x, y: y))
     }
 }
 

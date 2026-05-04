@@ -605,53 +605,116 @@ final class MainWindowController: NSWindowController {
 
     @objc func showBackendSettings() {
         var pathValue = BackendLocator.customBackendPath
+        let chooseResponse = NSApplication.ModalResponse(rawValue: 1001)
+        let resetResponse = NSApplication.ModalResponse(rawValue: 1002)
 
         while true {
-            let alert = NSAlert()
-            alert.messageText = "Backend Settings"
-            alert.informativeText = backend.map {
-                """
-                Current: \($0.info.name)
-                \($0.info.executableURL.path)
-
-                \($0.info.version)
-
-                Capabilities: \(capabilitySummary($0.info.capabilities))
-                Create formats: \($0.info.supportedCreateFormats.joined(separator: ", "))
-                """
-            } ?? "No active backend"
-            alert.addButton(withTitle: "Save")
-            alert.addButton(withTitle: "Choose...")
-            alert.addButton(withTitle: "Reset")
-            alert.addButton(withTitle: "Cancel")
+            let panel = NSPanel(
+                contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
+                styleMask: [.titled],
+                backing: .buffered,
+                defer: false
+            )
+            panel.title = "Backend Settings"
+            panel.isReleasedWhenClosed = false
 
             let stack = NSStackView()
             stack.orientation = .vertical
-            stack.spacing = 8
+            stack.spacing = 12
+            stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
             stack.translatesAutoresizingMaskIntoConstraints = false
+
+            let heading = NSTextField(labelWithString: "Choose or reset the 7-Zip command-line backend.")
+            heading.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
+
+            let currentBackend = wrappingSettingsLabel(backendSettingsSummary(), width: 660)
 
             let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 520, height: 24))
             field.placeholderString = "Custom backend path, for example /usr/local/bin/7z"
             field.stringValue = pathValue
 
-            let candidates = NSTextField(labelWithString: backendCandidateSummary())
-            candidates.lineBreakMode = .byWordWrapping
-            candidates.maximumNumberOfLines = 0
+            let candidates = NSTextView()
+            candidates.string = backendCandidateSummary()
+            candidates.isEditable = false
+            candidates.isSelectable = true
+            candidates.drawsBackground = false
+            candidates.textContainerInset = NSSize(width: 6, height: 6)
+            candidates.textContainer?.widthTracksTextView = true
 
+            let scrollView = NSScrollView()
+            scrollView.hasVerticalScroller = true
+            scrollView.borderType = .bezelBorder
+            scrollView.documentView = candidates
+            scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+            let buttons = NSStackView()
+            buttons.orientation = .horizontal
+            buttons.spacing = 10
+            buttons.alignment = .centerY
+            buttons.translatesAutoresizingMaskIntoConstraints = false
+            let spacer = NSView()
+            let saveButton = NSButton(title: "Save", target: nil, action: nil)
+            let chooseButton = NSButton(title: "Choose...", target: nil, action: nil)
+            let resetButton = NSButton(title: "Reset", target: nil, action: nil)
+            let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+            let saveTarget = ModalButtonTarget(response: .OK)
+            let chooseTarget = ModalButtonTarget(response: chooseResponse)
+            let resetTarget = ModalButtonTarget(response: resetResponse)
+            let cancelTarget = ModalButtonTarget(response: .cancel)
+            for (button, target) in [
+                (saveButton, saveTarget),
+                (chooseButton, chooseTarget),
+                (resetButton, resetTarget),
+                (cancelButton, cancelTarget)
+            ] {
+                button.bezelStyle = .rounded
+                button.target = target
+                button.action = #selector(ModalButtonTarget.closeModal(_:))
+            }
+            saveButton.keyEquivalent = "\r"
+            cancelButton.keyEquivalent = "\u{1b}"
+            buttons.addArrangedSubview(spacer)
+            buttons.addArrangedSubview(resetButton)
+            buttons.addArrangedSubview(chooseButton)
+            buttons.addArrangedSubview(cancelButton)
+            buttons.addArrangedSubview(saveButton)
+
+            stack.addArrangedSubview(heading)
+            stack.addArrangedSubview(currentBackend)
             stack.addArrangedSubview(field)
-            stack.addArrangedSubview(candidates)
-            alert.accessoryView = stack
+            stack.addArrangedSubview(scrollView)
+            stack.addArrangedSubview(buttons)
+
+            let contentView = NSView()
+            panel.contentView = contentView
+            contentView.addSubview(stack)
             NSLayoutConstraint.activate([
-                stack.widthAnchor.constraint(equalToConstant: 560)
+                stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+                stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+                stack.topAnchor.constraint(equalTo: contentView.topAnchor),
+                stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+                field.widthAnchor.constraint(equalToConstant: 660),
+                scrollView.widthAnchor.constraint(equalToConstant: 660),
+                scrollView.heightAnchor.constraint(equalToConstant: 220),
+                spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 260)
             ])
 
-            let response = alert.runModal()
+            if let window {
+                panel.centerRelative(to: window)
+            } else {
+                panel.center()
+            }
+            panel.makeKeyAndOrderFront(nil)
+            let response = NSApp.runModal(for: panel)
+            panel.orderOut(nil)
+            _ = [saveTarget, chooseTarget, resetTarget, cancelTarget]
+
             switch response {
-            case .alertFirstButtonReturn:
+            case .OK:
                 BackendLocator.setCustomBackendPath(field.stringValue)
                 Task { await detectBackend() }
                 return
-            case .alertSecondButtonReturn:
+            case chooseResponse:
                 let panel = NSOpenPanel()
                 panel.title = "Choose 7-Zip Backend"
                 panel.canChooseFiles = true
@@ -660,7 +723,7 @@ final class MainWindowController: NSWindowController {
                 if panel.runModal() == .OK, let url = panel.url {
                     pathValue = url.path
                 }
-            case .alertThirdButtonReturn:
+            case resetResponse:
                 BackendLocator.resetCustomBackendPath()
                 Task { await detectBackend() }
                 return
@@ -668,6 +731,17 @@ final class MainWindowController: NSWindowController {
                 return
             }
         }
+    }
+
+    private func backendSettingsSummary() -> String {
+        guard let backend else { return "Current: No active backend" }
+        return """
+        Current: \(backend.info.name)
+        \(backend.info.executableURL.path)
+        \(backend.info.version)
+        Capabilities: \(capabilitySummary(backend.info.capabilities))
+        Create formats: \(backend.info.supportedCreateFormats.joined(separator: ", "))
+        """
     }
 
     private func backendCandidateSummary() -> String {
@@ -681,6 +755,16 @@ final class MainWindowController: NSWindowController {
     private func capabilitySummary(_ capabilities: BackendCapabilities) -> String {
         let labels = capabilities.labels
         return labels.isEmpty ? "None" : labels.joined(separator: ", ")
+    }
+
+    private func wrappingSettingsLabel(_ text: String, width: CGFloat) -> NSTextField {
+        let label = NSTextField(labelWithString: text)
+        label.lineBreakMode = .byWordWrapping
+        label.maximumNumberOfLines = 0
+        label.translatesAutoresizingMaskIntoConstraints = false
+        label.setContentCompressionResistancePriority(.required, for: .vertical)
+        label.widthAnchor.constraint(equalToConstant: width).isActive = true
+        return label
     }
 
     func smokeTestSnapshot() -> [String: Any] {
