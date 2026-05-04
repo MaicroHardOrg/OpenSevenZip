@@ -113,7 +113,7 @@ enum Dialogs {
         )
     }
 
-    static func askAddOptions(archive: URL, in window: NSWindow?) -> AddOptions? {
+    static func askAddOptions(archive: URL, availableFormats: [String], in window: NSWindow?) -> AddOptions? {
         let alert = NSAlert()
         alert.messageText = "Archive Options"
         alert.informativeText = archive.path
@@ -126,10 +126,10 @@ enum Dialogs {
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let formatPopup = NSPopUpButton(frame: .zero)
-        let formats = ["7z", "zip", "tar"]
+        let formats = availableFormats.isEmpty ? ["7z"] : availableFormats
         formatPopup.addItems(withTitles: formats)
         let extensionFormat = archive.pathExtension.lowercased()
-        formatPopup.selectItem(withTitle: formats.contains(extensionFormat) ? extensionFormat : "7z")
+        formatPopup.selectItem(withTitle: formats.contains(extensionFormat) ? extensionFormat : formats[0])
 
         let levelPopup = NSPopUpButton(frame: .zero)
         let levels = ["Store (0)", "Fastest (1)", "Fast (3)", "Normal (5)", "Maximum (7)", "Ultra (9)"]

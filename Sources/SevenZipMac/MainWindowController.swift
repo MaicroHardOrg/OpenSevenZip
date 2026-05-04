@@ -456,6 +456,10 @@ final class MainWindowController: NSWindowController {
             Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
             return
         }
+        guard backend.capabilities.contains(.extract) else {
+            Dialogs.showError(AppError.unsupportedOperation("extract", backend.info.name), in: window)
+            return
+        }
 
         let panel = NSOpenPanel()
         panel.title = "Extract To"
@@ -491,6 +495,10 @@ final class MainWindowController: NSWindowController {
             Dialogs.showError(AppError.noBackend, in: window)
             return
         }
+        guard backend.capabilities.contains(.add) else {
+            Dialogs.showError(AppError.unsupportedOperation("add", backend.info.name), in: window)
+            return
+        }
 
         let openPanel = NSOpenPanel()
         openPanel.title = "Choose Files To Add"
@@ -503,7 +511,7 @@ final class MainWindowController: NSWindowController {
         savePanel.title = "Create Archive"
         savePanel.nameFieldStringValue = "Archive.7z"
         guard savePanel.runModal() == .OK, let archive = savePanel.url else { return }
-        guard let options = Dialogs.askAddOptions(archive: archive, in: window) else { return }
+        guard let options = Dialogs.askAddOptions(archive: archive, availableFormats: backend.info.supportedCreateFormats, in: window) else { return }
 
         runOperation(startMessage: "Creating \(options.archive.lastPathComponent)...", failureMessage: "Add failed") { [self] progress in
             try await backend.add(items: openPanel.urls, options: options, progress: progress)
@@ -521,6 +529,10 @@ final class MainWindowController: NSWindowController {
             Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
             return
         }
+        guard backend.capabilities.contains(.test) else {
+            Dialogs.showError(AppError.unsupportedOperation("test", backend.info.name), in: window)
+            return
+        }
         let password = passwordForOperation(message: "Test password")
         guard password != nil || archivePassword != nil else { return }
         runOperation(startMessage: "Testing \(archiveURL.lastPathComponent)...", failureMessage: "Test failed") { [self] progress in
@@ -533,6 +545,10 @@ final class MainWindowController: NSWindowController {
     @objc func deleteSelected() {
         guard let backend, let archiveURL else {
             Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
+            return
+        }
+        guard backend.capabilities.contains(.delete) else {
+            Dialogs.showError(AppError.unsupportedOperation("delete", backend.info.name), in: window)
             return
         }
         let entries = selectedEntries()
@@ -556,6 +572,10 @@ final class MainWindowController: NSWindowController {
     @objc func renameSelected() {
         guard let backend, let archiveURL else {
             Dialogs.showError(archiveURL == nil ? AppError.noArchiveSelected : AppError.noBackend, in: window)
+            return
+        }
+        guard backend.capabilities.contains(.rename) else {
+            Dialogs.showError(AppError.unsupportedOperation("rename", backend.info.name), in: window)
             return
         }
         let entries = selectedEntries()
@@ -590,7 +610,15 @@ final class MainWindowController: NSWindowController {
             let alert = NSAlert()
             alert.messageText = "Backend Settings"
             alert.informativeText = backend.map {
-                "Current: \($0.info.name)\n\($0.info.executableURL.path)\n\n\($0.info.version)"
+                """
+                Current: \($0.info.name)
+                \($0.info.executableURL.path)
+
+                \($0.info.version)
+
+                Capabilities: \(capabilitySummary($0.info.capabilities))
+                Create formats: \($0.info.supportedCreateFormats.joined(separator: ", "))
+                """
             } ?? "No active backend"
             alert.addButton(withTitle: "Save")
             alert.addButton(withTitle: "Choose...")
@@ -645,8 +673,14 @@ final class MainWindowController: NSWindowController {
     private func backendCandidateSummary() -> String {
         BackendLocator.candidates().map { candidate in
             let exists = FileManager.default.isExecutableFile(atPath: candidate.url.path) ? "available" : "missing"
-            return "\(candidate.name): \(candidate.url.path) (\(exists))"
+            let info = BackendInfo(name: candidate.name, executableURL: candidate.url, version: "", capabilities: candidate.capabilities)
+            return "\(candidate.name): \(candidate.url.path) (\(exists), \(capabilitySummary(candidate.capabilities)), formats: \(info.supportedCreateFormats.joined(separator: ", ")))"
         }.joined(separator: "\n")
+    }
+
+    private func capabilitySummary(_ capabilities: BackendCapabilities) -> String {
+        let labels = capabilities.labels
+        return labels.isEmpty ? "None" : labels.joined(separator: ", ")
     }
 
     func smokeTestSnapshot() -> [String: Any] {
@@ -686,6 +720,8 @@ final class MainWindowController: NSWindowController {
         report["backendName"] = backend?.info.name ?? ""
         report["backendPath"] = backend?.info.executableURL.path ?? ""
         report["backendVersion"] = backend?.info.version ?? ""
+        report["backendCapabilities"] = backend?.capabilities.labels ?? []
+        report["backendCreateFormats"] = backend?.info.supportedCreateFormats ?? []
         report["archivePath"] = archiveURL?.path ?? ""
         report["directoryPath"] = currentDirectoryURL?.path ?? ""
         report["allEntryCount"] = allEntries.count
@@ -816,6 +852,10 @@ final class MainWindowController: NSWindowController {
 
     private func addDroppedItems(_ urls: [URL]) {
         guard let backend, let archiveURL else { return }
+        guard backend.capabilities.contains(.add) else {
+            Dialogs.showError(AppError.unsupportedOperation("add", backend.info.name), in: window)
+            return
+        }
 
         runOperation(
             startMessage: "Adding \(urls.count) item\(urls.count == 1 ? "" : "s")...",
@@ -931,7 +971,7 @@ extension MainWindowController: NSMenuItemValidation {
             case #selector(openArchivePanel), #selector(showBackendSettings):
                 return true
             case #selector(addFiles):
-                return backend != nil
+                return backend?.capabilities.contains(.add) == true
             case #selector(openSelectedEntry):
                 return tableView.selectedRowIndexes.count == 1
             case #selector(goUp):
@@ -939,13 +979,15 @@ extension MainWindowController: NSMenuItemValidation {
                 guard let currentDirectoryURL else { return false }
                 return currentDirectoryURL.deletingLastPathComponent().path != currentDirectoryURL.path
             case #selector(extractSelected):
-                return backend != nil && archiveURL != nil
-            case #selector(testArchive), #selector(askPasswordAndReload):
-                return backend != nil && archiveURL != nil
+                return backend?.capabilities.contains(.extract) == true && archiveURL != nil
+            case #selector(askPasswordAndReload):
+                return backend?.capabilities.contains(.list) == true && archiveURL != nil
+            case #selector(testArchive):
+                return backend?.capabilities.contains(.test) == true && archiveURL != nil
             case #selector(renameSelected):
-                return backend != nil && archiveURL != nil && tableView.selectedRowIndexes.count == 1
+                return backend?.capabilities.contains(.rename) == true && archiveURL != nil && tableView.selectedRowIndexes.count == 1
             case #selector(deleteSelected):
-                return backend != nil && archiveURL != nil && !tableView.selectedRowIndexes.isEmpty
+                return backend?.capabilities.contains(.delete) == true && archiveURL != nil && !tableView.selectedRowIndexes.isEmpty
             default:
                 return true
             }

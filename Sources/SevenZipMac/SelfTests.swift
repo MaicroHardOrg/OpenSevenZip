@@ -275,9 +275,15 @@ enum SelfTests {
         try expect(candidates[0].url.path == "/opt/local/bin/7zz-custom", "custom backend path")
         try expect(candidates[1].url.path == "/Applications/7-Zip.app/Contents/Resources/7zz", "official backend resource path")
         try expect(candidates.allSatisfy { $0.capabilities.contains([.list, .extract, .add, .test, .delete, .rename]) }, "backend capabilities")
+        let officialInfo = BackendInfo(name: candidates[1].name, executableURL: candidates[1].url, version: "", capabilities: candidates[1].capabilities)
+        try expect(officialInfo.supportedCreateFormats == ["7z", "zip", "tar"], "official create formats")
 
         let fallbackOnly = BackendLocator.candidateList(customBackendPath: "", resourceURL: nil)
         try expect(fallbackOnly.map(\.name) == ["p7zip 7z", "p7zip 7za", "p7zip 7zr"], "p7zip fallback priority")
+        let sevenZr = fallbackOnly[2]
+        let sevenZrInfo = BackendInfo(name: sevenZr.name, executableURL: sevenZr.url, version: "", capabilities: sevenZr.capabilities)
+        try expect(sevenZrInfo.supportedCreateFormats == ["7z"], "7zr create formats")
+        try expect(BackendCapabilities([.list, .add, .test]).labels == ["List", "Add", "Test"], "capability labels")
     }
 
     private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {

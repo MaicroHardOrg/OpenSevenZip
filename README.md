@@ -59,6 +59,7 @@ open dist/7-Zip.app --args /path/to/archive.7z
 - Rename a selected archive entry where the backend supports it.
 - Password prompts for listing, extracting, testing, and creating encrypted archives.
 - Backend settings with persisted custom executable path, reset-to-autodetect, and candidate detection.
+- Backend capability gating for menu/toolbar commands and create-format choices.
 - Packaged `.app` bundle with a 7-Zip icon resource and local ad-hoc signature.
 
 ## Notes

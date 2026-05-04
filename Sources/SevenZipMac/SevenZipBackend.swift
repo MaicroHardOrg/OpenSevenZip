@@ -4,6 +4,7 @@ typealias BackendProgress = @Sendable (_ line: String) -> Void
 
 protocol SevenZipBackend: Sendable {
     var info: BackendInfo { get }
+    var capabilities: BackendCapabilities { get }
     func list(archive: URL, password: String?, progress: BackendProgress?) async throws -> [ArchiveEntry]
     func extract(archive: URL, entries: [ArchiveEntry], destination: URL, password: String?, overwrite: Bool, progress: BackendProgress?) async throws
     func add(items: [URL], options: Dialogs.AddOptions, progress: BackendProgress?) async throws
@@ -13,6 +14,10 @@ protocol SevenZipBackend: Sendable {
 }
 
 extension SevenZipBackend {
+    var capabilities: BackendCapabilities {
+        info.capabilities
+    }
+
     func list(archive: URL, password: String?) async throws -> [ArchiveEntry] {
         try await list(archive: archive, password: password, progress: nil)
     }

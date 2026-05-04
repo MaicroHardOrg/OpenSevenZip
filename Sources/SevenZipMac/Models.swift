@@ -30,6 +30,19 @@ struct BackendCapabilities: OptionSet, Sendable {
     static let test = BackendCapabilities(rawValue: 1 << 3)
     static let delete = BackendCapabilities(rawValue: 1 << 4)
     static let rename = BackendCapabilities(rawValue: 1 << 5)
+
+    var labels: [String] {
+        [
+            (.list, "List"),
+            (.extract, "Extract"),
+            (.add, "Add"),
+            (.test, "Test"),
+            (.delete, "Delete"),
+            (.rename, "Rename")
+        ].compactMap { capability, label in
+            contains(capability) ? label : nil
+        }
+    }
 }
 
 struct BackendInfo: Equatable, Sendable {
@@ -37,6 +50,14 @@ struct BackendInfo: Equatable, Sendable {
     var executableURL: URL
     var version: String
     var capabilities: BackendCapabilities
+
+    var supportedCreateFormats: [String] {
+        guard capabilities.contains(.add) else { return [] }
+        if name.localizedCaseInsensitiveContains("7zr") {
+            return ["7z"]
+        }
+        return ["7z", "zip", "tar"]
+    }
 }
 
 enum ArchiveOperation: Sendable {
@@ -82,6 +103,7 @@ enum AppError: Error, CustomStringConvertible, Sendable {
     case noBackend
     case noArchiveSelected
     case invalidArchive(URL)
+    case unsupportedOperation(String, String)
 
     var description: String {
         switch self {
@@ -91,6 +113,8 @@ enum AppError: Error, CustomStringConvertible, Sendable {
             "No archive is open."
         case .invalidArchive(let url):
             "The selected item is not an archive: \(url.path)"
+        case .unsupportedOperation(let operation, let backend):
+            "\(backend) does not support \(operation). Choose another 7-Zip backend in Backend Settings."
         }
     }
 }

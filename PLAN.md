@@ -31,6 +31,7 @@ Build a new Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app
 - Implemented cancellable long-running backend operations with a status-bar Cancel button that terminates the active 7-Zip process.
 - Implemented live backend output updates in the status bar for long-running operations.
 - Implemented advanced add options for split volumes plus include/exclude patterns.
+- Implemented backend capability exposure, command validation, settings details, and capability-based create-format choices.
 - Implemented app bundle icon packaging from the checked-in 7-Zip file-manager icon asset.
 - Implemented bundled official `7zz` support plus p7zip/custom backend detection.
 - Implemented Open, Add, Extract, Test, Delete, Rename, Password, and Backend toolbar workflows.
