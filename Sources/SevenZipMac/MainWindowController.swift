@@ -533,11 +533,8 @@ final class MainWindowController: NSWindowController {
             Dialogs.showError(AppError.unsupportedOperation("test", backend.info.name), in: window)
             return
         }
-        let password = passwordForOperation(message: "Test password")
-        guard password != nil || archivePassword != nil else { return }
         runOperation(startMessage: "Testing \(archiveURL.lastPathComponent)...", failureMessage: "Test failed") { [self] progress in
-            try await backend.test(archive: archiveURL, password: password, progress: progress)
-            Dialogs.showInfo("Archive test passed", detail: archiveURL.path, in: window)
+            try await backend.test(archive: archiveURL, password: archivePassword, progress: progress)
             return "Test passed"
         }
     }
