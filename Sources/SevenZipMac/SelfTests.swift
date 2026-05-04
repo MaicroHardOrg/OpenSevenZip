@@ -265,7 +265,8 @@ enum SelfTests {
     private static func backendCandidatesUseExpectedPriority() throws {
         let candidates = BackendLocator.candidateList(
             customBackendPath: "/opt/local/bin/7zz-custom",
-            resourceURL: URL(fileURLWithPath: "/Applications/7-Zip.app/Contents/Resources")
+            resourceURL: URL(fileURLWithPath: "/Applications/7-Zip.app/Contents/Resources"),
+            pathEnvironment: "/tmp/no-7zip-bin"
         )
 
         try expect(
@@ -278,11 +279,21 @@ enum SelfTests {
         let officialInfo = BackendInfo(name: candidates[1].name, executableURL: candidates[1].url, version: "", capabilities: candidates[1].capabilities)
         try expect(officialInfo.supportedCreateFormats == ["7z", "zip", "tar"], "official create formats")
 
-        let fallbackOnly = BackendLocator.candidateList(customBackendPath: "", resourceURL: nil)
+        let fallbackOnly = BackendLocator.candidateList(customBackendPath: "", resourceURL: nil, pathEnvironment: "/tmp/no-7zip-bin")
         try expect(fallbackOnly.map(\.name) == ["p7zip 7z", "p7zip 7za", "p7zip 7zr"], "p7zip fallback priority")
         let sevenZr = fallbackOnly[2]
         let sevenZrInfo = BackendInfo(name: sevenZr.name, executableURL: sevenZr.url, version: "", capabilities: sevenZr.capabilities)
         try expect(sevenZrInfo.supportedCreateFormats == ["7z"], "7zr create formats")
+        let pathCandidates = BackendLocator.candidateList(
+            customBackendPath: "",
+            resourceURL: nil,
+            pathEnvironment: "/usr/local/bin:/opt/homebrew/bin:/usr/local/bin"
+        )
+        let pathCandidateNames = pathCandidates.map(\.name)
+        if FileManager.default.isExecutableFile(atPath: "/usr/local/bin/7z") {
+            try expect(pathCandidateNames.first == "PATH 7z", "PATH 7z appears before fallback and dedupes fallback")
+            try expect(pathCandidates.filter { $0.url.path == "/usr/local/bin/7z" }.count == 1, "dedupe PATH and fallback 7z")
+        }
         try expect(BackendCapabilities([.list, .add, .test]).labels == ["List", "Add", "Test"], "capability labels")
     }
 

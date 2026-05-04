@@ -127,28 +127,73 @@ enum BackendLocator {
     }
 
     static func candidates() -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
-        candidateList(customBackendPath: customBackendPath, resourceURL: Bundle.main.resourceURL)
+        candidateList(customBackendPath: customBackendPath, resourceURL: Bundle.main.resourceURL, pathEnvironment: ProcessInfo.processInfo.environment["PATH"])
     }
 
-    static func candidateList(customBackendPath: String, resourceURL: URL?) -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
+    static func candidateList(
+        customBackendPath: String,
+        resourceURL: URL?,
+        pathEnvironment: String? = nil
+    ) -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
         let fullCapabilities: BackendCapabilities = [.list, .extract, .add, .test, .delete, .rename]
-        var values: [(String, URL, BackendCapabilities)] = []
+        var values: [(name: String, url: URL, capabilities: BackendCapabilities)] = []
+        var seenPaths = Set<String>()
 
         if !customBackendPath.isEmpty {
-            values.append(("Custom 7-Zip", URL(fileURLWithPath: customBackendPath), fullCapabilities))
+            appendCandidate("Custom 7-Zip", URL(fileURLWithPath: customBackendPath), fullCapabilities, to: &values, seenPaths: &seenPaths)
         }
 
         if let resourceURL {
-            values.append(("Official 7-Zip", resourceURL.appendingPathComponent("7zz"), fullCapabilities))
+            appendCandidate("Official 7-Zip", resourceURL.appendingPathComponent("7zz"), fullCapabilities, to: &values, seenPaths: &seenPaths)
         }
 
-        values.append(contentsOf: [
+        for candidate in pathCandidates(pathEnvironment: pathEnvironment, capabilities: fullCapabilities) {
+            appendCandidate(candidate.name, candidate.url, candidate.capabilities, to: &values, seenPaths: &seenPaths)
+        }
+
+        for candidate in [
             ("p7zip 7z", URL(fileURLWithPath: "/usr/local/bin/7z"), fullCapabilities),
             ("p7zip 7za", URL(fileURLWithPath: "/usr/local/bin/7za"), fullCapabilities),
             ("p7zip 7zr", URL(fileURLWithPath: "/usr/local/bin/7zr"), fullCapabilities)
-        ])
+        ] {
+            appendCandidate(candidate.0, candidate.1, candidate.2, to: &values, seenPaths: &seenPaths)
+        }
 
         return values
+    }
+
+    private static func pathCandidates(
+        pathEnvironment: String?,
+        capabilities: BackendCapabilities
+    ) -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
+        let executableNames = ["7zz", "7z", "7za", "7zr"]
+        let directories = (pathEnvironment ?? "")
+            .split(separator: ":")
+            .map(String.init)
+            .filter { !$0.isEmpty }
+
+        var candidates: [(String, URL, BackendCapabilities)] = []
+        for directory in directories {
+            for executableName in executableNames {
+                let url = URL(fileURLWithPath: directory).appendingPathComponent(executableName)
+                if FileManager.default.isExecutableFile(atPath: url.path) {
+                    candidates.append(("PATH \(executableName)", url, capabilities))
+                }
+            }
+        }
+        return candidates
+    }
+
+    private static func appendCandidate(
+        _ name: String,
+        _ url: URL,
+        _ capabilities: BackendCapabilities,
+        to values: inout [(name: String, url: URL, capabilities: BackendCapabilities)],
+        seenPaths: inout Set<String>
+    ) {
+        let normalizedPath = url.standardizedFileURL.path
+        guard seenPaths.insert(normalizedPath).inserted else { return }
+        values.append((name, URL(fileURLWithPath: normalizedPath), capabilities))
     }
 
     private static func versionString(for executableURL: URL) async -> String? {
