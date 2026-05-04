@@ -47,44 +47,55 @@ final class MainWindowController: NSWindowController {
         window.toolbar = makeToolbar()
         installMainMenu()
 
-        let root = NSStackView()
-        root.orientation = .vertical
-        root.spacing = 0
-        root.translatesAutoresizingMaskIntoConstraints = false
-        root.wantsLayer = true
-        root.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
-
-        let pathBar = NSStackView()
-        pathBar.orientation = .horizontal
-        pathBar.spacing = 8
-        pathBar.edgeInsets = NSEdgeInsets(top: 8, left: 12, bottom: 8, right: 12)
+        let pathBar = NSView()
+        pathBar.translatesAutoresizingMaskIntoConstraints = false
         pathBar.wantsLayer = true
         pathBar.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
 
         let upButton = NSButton(title: "Up", target: self, action: #selector(goUp))
         upButton.bezelStyle = .rounded
+        upButton.translatesAutoresizingMaskIntoConstraints = false
+        pathField.alignment = .left
         pathField.lineBreakMode = .byTruncatingMiddle
-        pathBar.addArrangedSubview(upButton)
-        pathBar.addArrangedSubview(pathField)
+        pathField.translatesAutoresizingMaskIntoConstraints = false
+        pathField.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        pathField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        pathBar.addSubview(upButton)
+        pathBar.addSubview(pathField)
+        NSLayoutConstraint.activate([
+            upButton.leftAnchor.constraint(equalTo: pathBar.leftAnchor),
+            upButton.centerYAnchor.constraint(equalTo: pathBar.centerYAnchor),
+            pathField.leftAnchor.constraint(equalTo: upButton.rightAnchor, constant: 8),
+            pathField.rightAnchor.constraint(equalTo: pathBar.rightAnchor, constant: -12),
+            pathField.centerYAnchor.constraint(equalTo: pathBar.centerYAnchor),
+            pathBar.heightAnchor.constraint(equalToConstant: 46)
+        ])
 
         setupTable()
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
         setupStatusBar()
-
-        root.addArrangedSubview(pathBar)
-        root.addArrangedSubview(scrollView)
-        root.addArrangedSubview(statusContainer())
+        let statusBar = statusContainer()
+        statusBar.translatesAutoresizingMaskIntoConstraints = false
 
         let contentView = NSView()
         contentView.wantsLayer = true
         contentView.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         window.contentView = contentView
-        contentView.addSubview(root)
+        contentView.addSubview(pathBar)
+        contentView.addSubview(scrollView)
+        contentView.addSubview(statusBar)
 
         NSLayoutConstraint.activate([
-            root.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor),
-            root.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor),
-            root.topAnchor.constraint(equalTo: window.contentView!.topAnchor),
-            root.bottomAnchor.constraint(equalTo: window.contentView!.bottomAnchor),
+            pathBar.leftAnchor.constraint(equalTo: contentView.leftAnchor),
+            pathBar.rightAnchor.constraint(equalTo: contentView.rightAnchor),
+            pathBar.topAnchor.constraint(equalTo: contentView.topAnchor),
+            scrollView.leftAnchor.constraint(equalTo: contentView.leftAnchor),
+            scrollView.rightAnchor.constraint(equalTo: contentView.rightAnchor),
+            scrollView.topAnchor.constraint(equalTo: pathBar.bottomAnchor),
+            scrollView.bottomAnchor.constraint(equalTo: statusBar.topAnchor),
+            statusBar.leftAnchor.constraint(equalTo: contentView.leftAnchor),
+            statusBar.rightAnchor.constraint(equalTo: contentView.rightAnchor),
+            statusBar.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
             scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 300)
         ])
 
@@ -320,16 +331,17 @@ final class MainWindowController: NSWindowController {
     }
 
     private func showDirectory(_ url: URL) {
+        let directoryURL = normalizedDirectoryURL(url)
         archiveURL = nil
         archivePassword = nil
-        currentDirectoryURL = url
+        currentDirectoryURL = directoryURL
         allEntries = []
         currentPath = ""
 
         do {
             let keys: Set<URLResourceKey> = [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey, .isHiddenKey]
             let urls = try FileManager.default.contentsOfDirectory(
-                at: url,
+                at: directoryURL,
                 includingPropertiesForKeys: Array(keys),
                 options: [.skipsPackageDescendants]
             )
@@ -349,16 +361,20 @@ final class MainWindowController: NSWindowController {
             }
             visibleEntries = sortedEntries(entries)
 
-            pathField.stringValue = url.path
+            pathField.stringValue = directoryURL.path
             tableView.reloadData()
-            setBusy(false, message: "\(visibleEntries.count) items in \(url.path)")
+            setBusy(false, message: "\(visibleEntries.count) items in \(directoryURL.path)")
         } catch {
             visibleEntries = []
-            pathField.stringValue = url.path
+            pathField.stringValue = directoryURL.path
             tableView.reloadData()
             setBusy(false, message: "Cannot open folder")
             Dialogs.showError(error, in: window)
         }
+    }
+
+    private func normalizedDirectoryURL(_ url: URL) -> URL {
+        URL(fileURLWithPath: url.standardizedFileURL.path, isDirectory: true)
     }
 
     private func selectedEntries() -> [ArchiveEntry] {
@@ -879,9 +895,11 @@ final class MainWindowController: NSWindowController {
         }
 
         if archiveURL == nil, let currentDirectoryURL {
-            let parent = currentDirectoryURL.deletingLastPathComponent()
-            if parent.path != currentDirectoryURL.path {
-                showDirectory(parent)
+            let directoryURL = normalizedDirectoryURL(currentDirectoryURL)
+            if directoryURL.path == "/" {
+                showDirectory(directoryURL)
+            } else {
+                showDirectory(directoryURL.deletingLastPathComponent())
             }
             return
         }
@@ -1057,8 +1075,7 @@ extension MainWindowController: NSMenuItemValidation {
                 return tableView.selectedRowIndexes.count == 1
             case #selector(goUp):
                 if archiveURL != nil { return true }
-                guard let currentDirectoryURL else { return false }
-                return currentDirectoryURL.deletingLastPathComponent().path != currentDirectoryURL.path
+                return currentDirectoryURL != nil
             case #selector(extractSelected):
                 return backend?.capabilities.contains(.extract) == true && archiveURL != nil
             case #selector(askPasswordAndReload):
