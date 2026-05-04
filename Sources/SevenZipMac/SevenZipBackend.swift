@@ -144,7 +144,7 @@ enum BackendLocator {
         }
 
         if let resourceURL {
-            appendCandidate("Official 7-Zip", resourceURL.appendingPathComponent("7zz"), fullCapabilities, to: &values, seenPaths: &seenPaths)
+            appendCandidate("Bundled official 7zz", resourceURL.appendingPathComponent("7zz"), fullCapabilities, to: &values, seenPaths: &seenPaths)
         }
 
         for candidate in pathCandidates(pathEnvironment: pathEnvironment, capabilities: fullCapabilities) {
@@ -152,9 +152,12 @@ enum BackendLocator {
         }
 
         for candidate in [
-            ("p7zip 7z", URL(fileURLWithPath: "/usr/local/bin/7z"), fullCapabilities),
-            ("p7zip 7za", URL(fileURLWithPath: "/usr/local/bin/7za"), fullCapabilities),
-            ("p7zip 7zr", URL(fileURLWithPath: "/usr/local/bin/7zr"), fullCapabilities)
+            ("Host /usr/local/bin/7z", URL(fileURLWithPath: "/usr/local/bin/7z"), fullCapabilities),
+            ("Host /usr/local/bin/7za", URL(fileURLWithPath: "/usr/local/bin/7za"), fullCapabilities),
+            ("Host /usr/local/bin/7zr", URL(fileURLWithPath: "/usr/local/bin/7zr"), fullCapabilities),
+            ("Host /opt/homebrew/bin/7z", URL(fileURLWithPath: "/opt/homebrew/bin/7z"), fullCapabilities),
+            ("Host /opt/homebrew/bin/7za", URL(fileURLWithPath: "/opt/homebrew/bin/7za"), fullCapabilities),
+            ("Host /opt/homebrew/bin/7zr", URL(fileURLWithPath: "/opt/homebrew/bin/7zr"), fullCapabilities)
         ] {
             appendCandidate(candidate.0, candidate.1, candidate.2, to: &values, seenPaths: &seenPaths)
         }
@@ -177,7 +180,7 @@ enum BackendLocator {
             for executableName in executableNames {
                 let url = URL(fileURLWithPath: directory).appendingPathComponent(executableName)
                 if FileManager.default.isExecutableFile(atPath: url.path) {
-                    candidates.append(("PATH \(executableName)", url, capabilities))
+                    candidates.append(("Host PATH \(executableName)", url, capabilities))
                 }
             }
         }

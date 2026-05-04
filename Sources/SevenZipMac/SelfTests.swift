@@ -270,7 +270,7 @@ enum SelfTests {
         )
 
         try expect(
-            candidates.map(\.name) == ["Custom 7-Zip", "Official 7-Zip", "p7zip 7z", "p7zip 7za", "p7zip 7zr"],
+            candidates.map(\.name).prefix(5) == ["Custom 7-Zip", "Bundled official 7zz", "Host /usr/local/bin/7z", "Host /usr/local/bin/7za", "Host /usr/local/bin/7zr"],
             "backend candidate priority"
         )
         try expect(candidates[0].url.path == "/opt/local/bin/7zz-custom", "custom backend path")
@@ -280,7 +280,7 @@ enum SelfTests {
         try expect(officialInfo.supportedCreateFormats == ["7z", "zip", "tar"], "official create formats")
 
         let fallbackOnly = BackendLocator.candidateList(customBackendPath: "", resourceURL: nil, pathEnvironment: "/tmp/no-7zip-bin")
-        try expect(fallbackOnly.map(\.name) == ["p7zip 7z", "p7zip 7za", "p7zip 7zr"], "p7zip fallback priority")
+        try expect(fallbackOnly.map(\.name).prefix(3) == ["Host /usr/local/bin/7z", "Host /usr/local/bin/7za", "Host /usr/local/bin/7zr"], "p7zip fallback priority")
         let sevenZr = fallbackOnly[2]
         let sevenZrInfo = BackendInfo(name: sevenZr.name, executableURL: sevenZr.url, version: "", capabilities: sevenZr.capabilities)
         try expect(sevenZrInfo.supportedCreateFormats == ["7z"], "7zr create formats")
@@ -291,7 +291,7 @@ enum SelfTests {
         )
         let pathCandidateNames = pathCandidates.map(\.name)
         if FileManager.default.isExecutableFile(atPath: "/usr/local/bin/7z") {
-            try expect(pathCandidateNames.first == "PATH 7z", "PATH 7z appears before fallback and dedupes fallback")
+            try expect(pathCandidateNames.first == "Host PATH 7z", "PATH 7z appears before fallback and dedupes fallback")
             try expect(pathCandidates.filter { $0.url.path == "/usr/local/bin/7z" }.count == 1, "dedupe PATH and fallback 7z")
         }
         try expect(BackendCapabilities([.list, .add, .test]).labels == ["List", "Add", "Test"], "capability labels")

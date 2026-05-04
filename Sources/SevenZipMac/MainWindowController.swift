@@ -759,11 +759,23 @@ final class MainWindowController: NSWindowController {
     }
 
     private func backendCandidateSummary() -> String {
+        backendCandidateRows().map { row in
+            "\(row.name) [\(row.exists)]\n  \(row.path)\n  capabilities: \(row.capabilities); formats: \(row.formats)"
+        }.joined(separator: "\n\n")
+    }
+
+    private func backendCandidateRows() -> [(name: String, path: String, exists: String, capabilities: String, formats: String)] {
         BackendLocator.candidates().map { candidate in
             let exists = FileManager.default.isExecutableFile(atPath: candidate.url.path) ? "available" : "missing"
             let info = BackendInfo(name: candidate.name, executableURL: candidate.url, version: "", capabilities: candidate.capabilities)
-            return "\(candidate.name): \(candidate.url.path) (\(exists), \(capabilitySummary(candidate.capabilities)), formats: \(info.supportedCreateFormats.joined(separator: ", ")))"
-        }.joined(separator: "\n")
+            return (
+                name: candidate.name,
+                path: candidate.url.path,
+                exists: exists,
+                capabilities: capabilitySummary(candidate.capabilities),
+                formats: info.supportedCreateFormats.joined(separator: ", ")
+            )
+        }
     }
 
     private func capabilitySummary(_ capabilities: BackendCapabilities) -> String {
@@ -820,6 +832,15 @@ final class MainWindowController: NSWindowController {
         report["backendVersion"] = backend?.info.version ?? ""
         report["backendCapabilities"] = backend?.capabilities.labels ?? []
         report["backendCreateFormats"] = backend?.info.supportedCreateFormats ?? []
+        report["backendCandidates"] = backendCandidateRows().map { row in
+            [
+                "name": row.name,
+                "path": row.path,
+                "exists": row.exists,
+                "capabilities": row.capabilities,
+                "formats": row.formats
+            ]
+        }
         report["archivePath"] = archiveURL?.path ?? ""
         report["directoryPath"] = currentDirectoryURL?.path ?? ""
         report["allEntryCount"] = allEntries.count
