@@ -64,6 +64,7 @@ final class MainWindowController: NSWindowController {
         pathBar.addSubview(pathField)
         NSLayoutConstraint.activate([
             upButton.leftAnchor.constraint(equalTo: pathBar.leftAnchor),
+            upButton.widthAnchor.constraint(equalToConstant: 48),
             upButton.centerYAnchor.constraint(equalTo: pathBar.centerYAnchor),
             pathField.leftAnchor.constraint(equalTo: upButton.rightAnchor, constant: 8),
             pathField.rightAnchor.constraint(equalTo: pathBar.rightAnchor, constant: -12),
