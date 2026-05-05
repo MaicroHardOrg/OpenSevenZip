@@ -647,13 +647,23 @@ final class MainWindowController: NSWindowController {
             field.placeholderString = "Custom backend path, for example /usr/local/bin/7z"
             field.stringValue = pathValue
 
-            let candidates = NSTextView()
+            let candidatesLabel = NSTextField(labelWithString: "Detected backend candidates")
+            candidatesLabel.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
+
+            let candidates = NSTextView(frame: NSRect(x: 0, y: 0, width: 660, height: 220))
             candidates.string = backendCandidateSummary()
+            candidates.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+            candidates.textColor = .labelColor
             candidates.isEditable = false
             candidates.isSelectable = true
-            candidates.drawsBackground = false
+            candidates.drawsBackground = true
+            candidates.backgroundColor = .textBackgroundColor
+            candidates.isHorizontallyResizable = false
+            candidates.isVerticallyResizable = true
+            candidates.autoresizingMask = [.width]
             candidates.textContainerInset = NSSize(width: 6, height: 6)
             candidates.textContainer?.widthTracksTextView = true
+            candidates.textContainer?.containerSize = NSSize(width: 660, height: CGFloat.greatestFiniteMagnitude)
 
             let scrollView = NSScrollView()
             scrollView.hasVerticalScroller = true
@@ -696,6 +706,7 @@ final class MainWindowController: NSWindowController {
             stack.addArrangedSubview(heading)
             stack.addArrangedSubview(currentBackend)
             stack.addArrangedSubview(field)
+            stack.addArrangedSubview(candidatesLabel)
             stack.addArrangedSubview(scrollView)
             stack.addArrangedSubview(buttons)
 
