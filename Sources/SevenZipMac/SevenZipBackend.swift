@@ -92,36 +92,64 @@ final class CommandLineSevenZipBackend: SevenZipBackend, @unchecked Sendable {
 }
 
 enum BackendLocator {
+    private static let selectedBackendPathKey = "SelectedBackendPath"
     private static let customBackendPathKey = "CustomBackendPath"
+    private static let temporaryStore = TemporaryBackendStore()
 
     static var customBackendPath: String {
-        UserDefaults.standard.string(forKey: customBackendPathKey) ?? ""
+        temporaryStore.path
     }
 
     static func setCustomBackendPath(_ path: String) {
-        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
-        if trimmed.isEmpty {
-            resetCustomBackendPath()
-        } else {
-            UserDefaults.standard.set(trimmed, forKey: customBackendPathKey)
-        }
+        setTemporaryExternalBackendPath(path)
     }
 
     static func resetCustomBackendPath() {
+        resetTemporaryExternalBackendPath()
         UserDefaults.standard.removeObject(forKey: customBackendPathKey)
     }
 
+    static var selectedBackendPath: String {
+        UserDefaults.standard.string(forKey: selectedBackendPathKey)
+            ?? UserDefaults.standard.string(forKey: customBackendPathKey)
+            ?? ""
+    }
+
+    static func setSelectedBackendPath(_ path: String) {
+        let trimmed = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            resetSelectedBackendPath()
+        } else {
+            UserDefaults.standard.set(trimmed, forKey: selectedBackendPathKey)
+            UserDefaults.standard.removeObject(forKey: customBackendPathKey)
+        }
+    }
+
+    static func resetSelectedBackendPath() {
+        UserDefaults.standard.removeObject(forKey: selectedBackendPathKey)
+        UserDefaults.standard.removeObject(forKey: customBackendPathKey)
+    }
+
+    static func setTemporaryExternalBackendPath(_ path: String) {
+        temporaryStore.path = path.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    static func resetTemporaryExternalBackendPath() {
+        temporaryStore.path = ""
+    }
+
     static func defaultBackend() async -> SevenZipBackend? {
-        for candidate in candidates() {
+        let candidateList = candidates()
+        let selectedPath = selectedBackendPath
+        if !selectedPath.isEmpty,
+           let selected = candidateList.first(where: { $0.url.standardizedFileURL.path == URL(fileURLWithPath: selectedPath).standardizedFileURL.path }),
+           FileManager.default.isExecutableFile(atPath: selected.url.path) {
+            return await backend(for: selected)
+        }
+
+        for candidate in candidateList {
             guard FileManager.default.isExecutableFile(atPath: candidate.url.path) else { continue }
-            let version = await versionString(for: candidate.url) ?? "Unknown version"
-            let info = BackendInfo(
-                name: candidate.name,
-                executableURL: candidate.url,
-                version: version,
-                capabilities: candidate.capabilities
-            )
-            return CommandLineSevenZipBackend(info: info)
+            return await backend(for: candidate)
         }
         return nil
     }
@@ -140,7 +168,7 @@ enum BackendLocator {
         var seenPaths = Set<String>()
 
         if !customBackendPath.isEmpty {
-            appendCandidate("Custom 7-Zip", URL(fileURLWithPath: customBackendPath), fullCapabilities, to: &values, seenPaths: &seenPaths)
+            appendCandidate("Temporary external 7-Zip", URL(fileURLWithPath: customBackendPath), fullCapabilities, to: &values, seenPaths: &seenPaths)
         }
 
         if let resourceURL {
@@ -199,6 +227,38 @@ enum BackendLocator {
         values.append((name, URL(fileURLWithPath: normalizedPath), capabilities))
     }
 
+    private static func backend(for candidate: (name: String, url: URL, capabilities: BackendCapabilities)) async -> SevenZipBackend {
+        let version = await versionString(for: candidate.url) ?? "Unknown version"
+        let info = BackendInfo(
+            name: candidate.name,
+            executableURL: candidate.url,
+            version: version,
+            capabilities: candidate.capabilities
+        )
+        return CommandLineSevenZipBackend(info: info)
+    }
+
+    static func versionStringSync(for executableURL: URL) -> String? {
+        do {
+            let process = Process()
+            process.executableURL = executableURL
+
+            let stdout = Pipe()
+            let stderr = Pipe()
+            process.standardOutput = stdout
+            process.standardError = stderr
+
+            try process.run()
+            process.waitUntilExit()
+
+            let data = stdout.fileHandleForReading.readDataToEndOfFile() + stderr.fileHandleForReading.readDataToEndOfFile()
+            guard let output = String(data: data, encoding: .utf8) else { return nil }
+            return output.components(separatedBy: .newlines).first { $0.contains("7-Zip") }
+        } catch {
+            return nil
+        }
+    }
+
     private static func versionString(for executableURL: URL) async -> String? {
         do {
             let result = try await ProcessRunner.run(executableURL: executableURL, arguments: [], failure: { exitCode, output, errorOutput in
@@ -207,6 +267,22 @@ enum BackendLocator {
             return result.output.components(separatedBy: .newlines).first { $0.contains("7-Zip") }
         } catch {
             return nil
+        }
+    }
+}
+
+private final class TemporaryBackendStore: @unchecked Sendable {
+    private let lock = NSLock()
+    private var value = ""
+
+    var path: String {
+        get {
+            lock.withLock { value }
+        }
+        set {
+            lock.withLock {
+                value = newValue
+            }
         }
     }
 }

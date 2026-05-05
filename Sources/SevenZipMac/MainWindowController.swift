@@ -618,13 +618,14 @@ final class MainWindowController: NSWindowController {
     }
 
     @objc func showBackendSettings() {
-        var pathValue = BackendLocator.customBackendPath
+        var temporaryPathValue = BackendLocator.customBackendPath
         let chooseResponse = NSApplication.ModalResponse(rawValue: 1001)
         let resetResponse = NSApplication.ModalResponse(rawValue: 1002)
+        let temporaryResponse = NSApplication.ModalResponse(rawValue: 1003)
 
         while true {
             let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 720, height: 520),
+                contentRect: NSRect(x: 0, y: 0, width: 840, height: 600),
                 styleMask: [.titled],
                 backing: .buffered,
                 defer: false
@@ -638,35 +639,63 @@ final class MainWindowController: NSWindowController {
             stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
             stack.translatesAutoresizingMaskIntoConstraints = false
 
-            let heading = NSTextField(labelWithString: "Choose or reset the 7-Zip command-line backend.")
+            let heading = NSTextField(labelWithString: "Choose a detected 7-Zip backend, or use a temporary external executable.")
             heading.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
 
-            let currentBackend = wrappingSettingsLabel(backendSettingsSummary(), width: 660)
+            let currentBackend = wrappingSettingsLabel(backendSettingsSummary(), width: 780)
 
-            let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 520, height: 24))
-            field.placeholderString = "Custom backend path, for example /usr/local/bin/7z"
-            field.stringValue = pathValue
+            let fieldLabel = NSTextField(labelWithString: "Temporary external executable")
+            fieldLabel.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
+
+            let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 780, height: 24))
+            field.placeholderString = "Manual one-time path, for example /tmp/7z"
+            field.stringValue = temporaryPathValue
 
             let candidatesLabel = NSTextField(labelWithString: "Detected backend candidates")
             candidatesLabel.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
 
-            let candidates = NSTextView(frame: NSRect(x: 0, y: 0, width: 660, height: 220))
-            candidates.string = backendCandidateSummary()
-            candidates.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
-            candidates.textColor = .labelColor
-            candidates.isEditable = false
-            candidates.isSelectable = true
-            candidates.drawsBackground = true
-            candidates.backgroundColor = .textBackgroundColor
-            candidates.isHorizontallyResizable = false
-            candidates.isVerticallyResizable = true
-            candidates.autoresizingMask = [.width]
-            candidates.textContainerInset = NSSize(width: 6, height: 6)
-            candidates.textContainer?.widthTracksTextView = true
-            candidates.textContainer?.containerSize = NSSize(width: 660, height: CGFloat.greatestFiniteMagnitude)
+            let candidateRows = backendCandidateRows()
+            let selectedPath = BackendLocator.selectedBackendPath
+            let initiallySelectedRow = candidateRows.firstIndex { row in
+                !selectedPath.isEmpty && URL(fileURLWithPath: row.path).standardizedFileURL.path == URL(fileURLWithPath: selectedPath).standardizedFileURL.path
+            } ?? candidateRows.firstIndex { $0.exists == "available" } ?? -1
+
+            let candidates = NSTableView()
+            candidates.headerView = NSTableHeaderView()
+            candidates.allowsMultipleSelection = false
+            candidates.allowsEmptySelection = false
+            candidates.rowHeight = 46
+            candidates.usesAlternatingRowBackgroundColors = true
+            candidates.frame = NSRect(
+                x: 0,
+                y: 0,
+                width: 950,
+                height: CGFloat(max(candidateRows.count, 1)) * candidates.rowHeight + 28
+            )
+            for (identifier, title, width) in [
+                ("name", "Backend", CGFloat(170)),
+                ("exists", "Status", CGFloat(80)),
+                ("version", "Version", CGFloat(250)),
+                ("formats", "Formats", CGFloat(90)),
+                ("path", "Path", CGFloat(360))
+            ] {
+                let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(identifier))
+                column.title = title
+                column.width = width
+                column.minWidth = min(width, 70)
+                candidates.addTableColumn(column)
+            }
+            let candidateTableSource = BackendCandidateTableDataSource(rows: candidateRows)
+            candidates.dataSource = candidateTableSource
+            candidates.delegate = candidateTableSource
+            if initiallySelectedRow >= 0 {
+                candidates.selectRowIndexes(IndexSet(integer: initiallySelectedRow), byExtendingSelection: false)
+                candidates.scrollRowToVisible(initiallySelectedRow)
+            }
 
             let scrollView = NSScrollView()
             scrollView.hasVerticalScroller = true
+            scrollView.hasHorizontalScroller = true
             scrollView.borderType = .bezelBorder
             scrollView.documentView = candidates
             scrollView.translatesAutoresizingMaskIntoConstraints = false
@@ -677,16 +706,19 @@ final class MainWindowController: NSWindowController {
             buttons.alignment = .centerY
             buttons.translatesAutoresizingMaskIntoConstraints = false
             let spacer = NSView()
-            let saveButton = NSButton(title: "Save", target: nil, action: nil)
+            let saveButton = NSButton(title: "Use Selected", target: nil, action: nil)
+            let temporaryButton = NSButton(title: "Use Temporary", target: nil, action: nil)
             let chooseButton = NSButton(title: "Choose...", target: nil, action: nil)
             let resetButton = NSButton(title: "Reset", target: nil, action: nil)
             let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
             let saveTarget = ModalButtonTarget(response: .OK)
+            let temporaryTarget = ModalButtonTarget(response: temporaryResponse)
             let chooseTarget = ModalButtonTarget(response: chooseResponse)
             let resetTarget = ModalButtonTarget(response: resetResponse)
             let cancelTarget = ModalButtonTarget(response: .cancel)
             for (button, target) in [
                 (saveButton, saveTarget),
+                (temporaryButton, temporaryTarget),
                 (chooseButton, chooseTarget),
                 (resetButton, resetTarget),
                 (cancelButton, cancelTarget)
@@ -700,11 +732,13 @@ final class MainWindowController: NSWindowController {
             buttons.addArrangedSubview(spacer)
             buttons.addArrangedSubview(resetButton)
             buttons.addArrangedSubview(chooseButton)
+            buttons.addArrangedSubview(temporaryButton)
             buttons.addArrangedSubview(cancelButton)
             buttons.addArrangedSubview(saveButton)
 
             stack.addArrangedSubview(heading)
             stack.addArrangedSubview(currentBackend)
+            stack.addArrangedSubview(fieldLabel)
             stack.addArrangedSubview(field)
             stack.addArrangedSubview(candidatesLabel)
             stack.addArrangedSubview(scrollView)
@@ -718,10 +752,10 @@ final class MainWindowController: NSWindowController {
                 stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
                 stack.topAnchor.constraint(equalTo: contentView.topAnchor),
                 stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-                field.widthAnchor.constraint(equalToConstant: 660),
-                scrollView.widthAnchor.constraint(equalToConstant: 660),
-                scrollView.heightAnchor.constraint(equalToConstant: 220),
-                spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 260)
+                field.widthAnchor.constraint(equalToConstant: 780),
+                scrollView.widthAnchor.constraint(equalToConstant: 780),
+                scrollView.heightAnchor.constraint(equalToConstant: 260),
+                spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 250)
             ])
 
             if let window {
@@ -732,24 +766,52 @@ final class MainWindowController: NSWindowController {
             panel.makeKeyAndOrderFront(nil)
             let response = NSApp.runModal(for: panel)
             panel.orderOut(nil)
-            _ = [saveTarget, chooseTarget, resetTarget, cancelTarget]
+            _ = [saveTarget, temporaryTarget, chooseTarget, resetTarget, cancelTarget, candidateTableSource]
 
             switch response {
             case .OK:
-                BackendLocator.setCustomBackendPath(field.stringValue)
+                let selectedRow = candidates.selectedRow
+                if selectedRow >= 0, selectedRow < candidateRows.count {
+                    guard candidateRows[selectedRow].exists == "available" else {
+                        let alert = NSAlert()
+                        alert.messageText = "Backend unavailable"
+                        alert.informativeText = "Choose an available backend executable."
+                        alert.addButton(withTitle: "OK")
+                        alert.runModal()
+                        continue
+                    }
+                    BackendLocator.setSelectedBackendPath(candidateRows[selectedRow].path)
+                    BackendLocator.resetTemporaryExternalBackendPath()
+                }
+                Task { await detectBackend() }
+                return
+            case temporaryResponse:
+                let temporaryPath = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard FileManager.default.isExecutableFile(atPath: temporaryPath) else {
+                    let alert = NSAlert()
+                    alert.messageText = "Temporary backend unavailable"
+                    alert.informativeText = "Choose an executable 7-Zip command-line binary."
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                    temporaryPathValue = temporaryPath
+                    continue
+                }
+                BackendLocator.setTemporaryExternalBackendPath(temporaryPath)
+                BackendLocator.resetSelectedBackendPath()
                 Task { await detectBackend() }
                 return
             case chooseResponse:
                 let panel = NSOpenPanel()
-                panel.title = "Choose 7-Zip Backend"
+                panel.title = "Choose Temporary 7-Zip Backend"
                 panel.canChooseFiles = true
                 panel.canChooseDirectories = false
                 panel.allowsMultipleSelection = false
                 if panel.runModal() == .OK, let url = panel.url {
-                    pathValue = url.path
+                    temporaryPathValue = url.path
                 }
             case resetResponse:
-                BackendLocator.resetCustomBackendPath()
+                BackendLocator.resetSelectedBackendPath()
+                BackendLocator.resetTemporaryExternalBackendPath()
                 Task { await detectBackend() }
                 return
             default:
@@ -771,18 +833,21 @@ final class MainWindowController: NSWindowController {
 
     private func backendCandidateSummary() -> String {
         backendCandidateRows().map { row in
-            "\(row.name) [\(row.exists)]\n  \(row.path)\n  capabilities: \(row.capabilities); formats: \(row.formats)"
+            "\(row.name) [\(row.exists)]\n  \(row.path)\n  \(row.version)\n  capabilities: \(row.capabilities); formats: \(row.formats)"
         }.joined(separator: "\n\n")
     }
 
-    private func backendCandidateRows() -> [(name: String, path: String, exists: String, capabilities: String, formats: String)] {
+    private func backendCandidateRows() -> [BackendCandidateRow] {
         BackendLocator.candidates().map { candidate in
-            let exists = FileManager.default.isExecutableFile(atPath: candidate.url.path) ? "available" : "missing"
+            let isExecutable = FileManager.default.isExecutableFile(atPath: candidate.url.path)
+            let exists = isExecutable ? "available" : "missing"
+            let version = isExecutable ? (BackendLocator.versionStringSync(for: candidate.url) ?? "Unknown version") : "Not available"
             let info = BackendInfo(name: candidate.name, executableURL: candidate.url, version: "", capabilities: candidate.capabilities)
-            return (
+            return BackendCandidateRow(
                 name: candidate.name,
                 path: candidate.url.path,
                 exists: exists,
+                version: version,
                 capabilities: capabilitySummary(candidate.capabilities),
                 formats: info.supportedCreateFormats.joined(separator: ", ")
             )
@@ -848,6 +913,7 @@ final class MainWindowController: NSWindowController {
                 "name": row.name,
                 "path": row.path,
                 "exists": row.exists,
+                "version": row.version,
                 "capabilities": row.capabilities,
                 "formats": row.formats
             ]
@@ -1189,6 +1255,74 @@ private extension NSToolbarItem.Identifier {
     static let deleteEntry = NSToolbarItem.Identifier("DeleteEntry")
     static let password = NSToolbarItem.Identifier("Password")
     static let backendSettings = NSToolbarItem.Identifier("BackendSettings")
+}
+
+private struct BackendCandidateRow {
+    var name: String
+    var path: String
+    var exists: String
+    var version: String
+    var capabilities: String
+    var formats: String
+}
+
+private final class BackendCandidateTableDataSource: NSObject, NSTableViewDataSource, NSTableViewDelegate {
+    private let rows: [BackendCandidateRow]
+
+    init(rows: [BackendCandidateRow]) {
+        self.rows = rows
+    }
+
+    func numberOfRows(in tableView: NSTableView) -> Int {
+        rows.count
+    }
+
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        guard row >= 0, row < rows.count, let tableColumn else { return nil }
+        let candidate = rows[row]
+        let identifier = tableColumn.identifier
+        let cell = tableView.makeView(withIdentifier: identifier, owner: self) as? NSTableCellView ?? NSTableCellView()
+        cell.identifier = identifier
+
+        let field: NSTextField
+        if let existing = cell.textField {
+            field = existing
+        } else {
+            field = NSTextField(labelWithString: "")
+            field.translatesAutoresizingMaskIntoConstraints = false
+            field.lineBreakMode = .byTruncatingMiddle
+            field.maximumNumberOfLines = 2
+            cell.addSubview(field)
+            cell.textField = field
+            NSLayoutConstraint.activate([
+                field.leadingAnchor.constraint(equalTo: cell.leadingAnchor, constant: 4),
+                field.trailingAnchor.constraint(equalTo: cell.trailingAnchor, constant: -4),
+                field.centerYAnchor.constraint(equalTo: cell.centerYAnchor)
+            ])
+        }
+
+        switch identifier.rawValue {
+        case "name":
+            field.stringValue = candidate.name
+            field.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
+        case "exists":
+            field.stringValue = candidate.exists
+            field.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        case "version":
+            field.stringValue = candidate.version
+            field.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        case "formats":
+            field.stringValue = candidate.formats
+            field.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+        case "path":
+            field.stringValue = candidate.path
+            field.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+        default:
+            field.stringValue = ""
+        }
+        field.textColor = candidate.exists == "available" ? .labelColor : .secondaryLabelColor
+        return cell
+    }
 }
 
 private final class ArchiveTableView: NSTableView {

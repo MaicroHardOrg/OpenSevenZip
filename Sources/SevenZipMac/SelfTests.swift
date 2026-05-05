@@ -270,10 +270,10 @@ enum SelfTests {
         )
 
         try expect(
-            candidates.map(\.name).prefix(5) == ["Custom 7-Zip", "Bundled official 7zz", "Host /usr/local/bin/7z", "Host /usr/local/bin/7za", "Host /usr/local/bin/7zr"],
+            candidates.map(\.name).prefix(5) == ["Temporary external 7-Zip", "Bundled official 7zz", "Host /usr/local/bin/7z", "Host /usr/local/bin/7za", "Host /usr/local/bin/7zr"],
             "backend candidate priority"
         )
-        try expect(candidates[0].url.path == "/opt/local/bin/7zz-custom", "custom backend path")
+        try expect(candidates[0].url.path == "/opt/local/bin/7zz-custom", "temporary external backend path")
         try expect(candidates[1].url.path == "/Applications/7-Zip.app/Contents/Resources/7zz", "official backend resource path")
         try expect(candidates.allSatisfy { $0.capabilities.contains([.list, .extract, .add, .test, .delete, .rename]) }, "backend capabilities")
         let officialInfo = BackendInfo(name: candidates[1].name, executableURL: candidates[1].url, version: "", capabilities: candidates[1].capabilities)
