@@ -651,6 +651,12 @@ final class MainWindowController: NSWindowController {
             field.placeholderString = "Manual one-time path, for example /tmp/7z"
             field.stringValue = temporaryPathValue
 
+            let temporaryPathRow = NSStackView()
+            temporaryPathRow.orientation = .horizontal
+            temporaryPathRow.spacing = 8
+            temporaryPathRow.alignment = .centerY
+            temporaryPathRow.translatesAutoresizingMaskIntoConstraints = false
+
             let candidatesLabel = NSTextField(labelWithString: "Detected backend candidates")
             candidatesLabel.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
 
@@ -729,19 +735,20 @@ final class MainWindowController: NSWindowController {
             }
             saveButton.keyEquivalent = "\r"
             cancelButton.keyEquivalent = "\u{1b}"
+            temporaryPathRow.addArrangedSubview(chooseButton)
+            temporaryPathRow.addArrangedSubview(field)
             buttons.addArrangedSubview(spacer)
             buttons.addArrangedSubview(resetButton)
-            buttons.addArrangedSubview(chooseButton)
             buttons.addArrangedSubview(temporaryButton)
             buttons.addArrangedSubview(cancelButton)
             buttons.addArrangedSubview(saveButton)
 
             stack.addArrangedSubview(heading)
             stack.addArrangedSubview(currentBackend)
-            stack.addArrangedSubview(fieldLabel)
-            stack.addArrangedSubview(field)
             stack.addArrangedSubview(candidatesLabel)
             stack.addArrangedSubview(scrollView)
+            stack.addArrangedSubview(fieldLabel)
+            stack.addArrangedSubview(temporaryPathRow)
             stack.addArrangedSubview(buttons)
 
             let contentView = NSView()
@@ -752,7 +759,8 @@ final class MainWindowController: NSWindowController {
                 stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
                 stack.topAnchor.constraint(equalTo: contentView.topAnchor),
                 stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-                field.widthAnchor.constraint(equalToConstant: 780),
+                temporaryPathRow.widthAnchor.constraint(equalToConstant: 780),
+                field.widthAnchor.constraint(equalToConstant: 680),
                 scrollView.widthAnchor.constraint(equalToConstant: 780),
                 scrollView.heightAnchor.constraint(equalToConstant: 260),
                 spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 250)
