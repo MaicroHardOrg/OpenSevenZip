@@ -1,18 +1,28 @@
-# macOS 版 7-Zip
+# OpenSevenZip Explorer
 
-这是一个使用 Swift Package Manager 和 AppKit 构建的原生 macOS 7-Zip 图形界面。应用通过命令行后端完成压缩/解压工作：
+这是一个使用 Swift Package Manager 和 AppKit 构建的原生 macOS 压缩包图形界面。它不是官方 7-Zip File Manager。
 
-- 官方 macOS 版 7-Zip (`7zz`)，从相邻的 `../7zip` 源码构建并打包进应用。
-- 已安装的 p7zip 工具作为备用后端：`/usr/local/bin/7z`、`/usr/local/bin/7za`、`/usr/local/bin/7zr`。
+应用共享同一套 Swift 源码，并提供两个发行版本：
+
+- Mac App Store/TestFlight 版本：启用沙盒，只使用打包进应用内的官方 `7zz`。
+- GitHub 版本：支持打包的 `7zz`、PATH 中发现的宿主机 `7z` 系列工具，以及用户临时导入的可执行文件。
 
 ## 构建
 
 ```bash
-make build-backend
-make build
+make build-backend-universal
+make package-github
+make package-appstore
 ```
 
-`make build-backend` 会编译官方 7-Zip 的 `Alone2` 目标，并把生成的 `7zz` 复制到 `Resources/7zz`。该二进制文件不会被 git 跟踪，`make build` 会把它打包进应用。
+`make build-backend-universal` 会分别构建 `x86_64` 和 `arm64` 的官方 7-Zip `Alone2` 后端，并用 `lipo` 合并为通用 `Resources/7zz`。该二进制文件不会被 git 跟踪。
+
+## 测试
+
+```bash
+make test
+make test-appstore
+```
 
 ## 运行
 
@@ -23,27 +33,15 @@ make run
 应用输出位置：
 
 ```text
-dist/7-Zip.app
+dist/OpenSevenZip Explorer.app
 ```
 
 也可以直接打开压缩包：
 
 ```bash
-open dist/7-Zip.app --args /path/to/archive.7z
+open "dist/OpenSevenZip Explorer.app" --args /path/to/archive.7z
 ```
-
-## 当前功能
-
-- 支持从应用内、Finder/Open With 或启动参数打开压缩包。
-- 打开压缩包并通过 `7z l -slt` 列出内容。
-- 在压缩包内浏览文件夹。
-- 将文件/文件夹添加到新压缩包。
-- 解压选中的条目或整个压缩包。
-- 测试压缩包完整性。
-- 在后端支持时删除选中的压缩包条目。
-- 为列表、解压、测试和创建加密压缩包提供密码输入。
-- 后端设置支持保存自定义可执行文件路径、重置为自动检测，并显示候选后端检测结果。
 
 ## 说明
 
-这是原生 macOS 移植的初始版本，不是 Win32 UI 兼容层。界面遵循 7-Zip File Manager 的核心工作流，同时使用 macOS 控件和官方 7-Zip/p7zip 命令行后端抽象。
+App Store/TestFlight 版本会在编译期禁用任意外部可执行文件支持，只使用已打包并参与审核的 `7zz`。GitHub 版本保留更灵活的后端选择能力。

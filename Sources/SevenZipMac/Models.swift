@@ -108,13 +108,21 @@ enum AppError: Error, CustomStringConvertible, Sendable {
     var description: String {
         switch self {
         case .noBackend:
+            #if APP_STORE
+            "No bundled 7-Zip backend was found. Reinstall \(AppConfiguration.productName) or contact support."
+            #else
             "No 7-Zip backend was found. Build the bundled official 7zz backend or install p7zip."
+            #endif
         case .noArchiveSelected:
             "No archive is open."
         case .invalidArchive(let url):
             "The selected item is not an archive: \(url.path)"
         case .unsupportedOperation(let operation, let backend):
+            #if APP_STORE
+            "\(backend) does not support \(operation)."
+            #else
             "\(backend) does not support \(operation). Choose another 7-Zip backend in Backend Settings."
+            #endif
         }
     }
 }

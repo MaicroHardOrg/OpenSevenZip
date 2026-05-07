@@ -140,6 +140,13 @@ enum BackendLocator {
 
     static func defaultBackend() async -> SevenZipBackend? {
         let candidateList = candidates()
+        #if APP_STORE
+        for candidate in candidateList {
+            guard FileManager.default.isExecutableFile(atPath: candidate.url.path) else { continue }
+            return await backend(for: candidate)
+        }
+        return nil
+        #else
         let selectedPath = selectedBackendPath
         if !selectedPath.isEmpty,
            let selected = candidateList.first(where: { $0.url.standardizedFileURL.path == URL(fileURLWithPath: selectedPath).standardizedFileURL.path }),
@@ -152,6 +159,7 @@ enum BackendLocator {
             return await backend(for: candidate)
         }
         return nil
+        #endif
     }
 
     static func candidates() -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
@@ -167,12 +175,13 @@ enum BackendLocator {
         var values: [(name: String, url: URL, capabilities: BackendCapabilities)] = []
         var seenPaths = Set<String>()
 
-        if !customBackendPath.isEmpty {
-            appendCandidate("Temporary external 7-Zip", URL(fileURLWithPath: customBackendPath), fullCapabilities, to: &values, seenPaths: &seenPaths)
-        }
-
         if let resourceURL {
             appendCandidate("Bundled official 7zz", resourceURL.appendingPathComponent("7zz"), fullCapabilities, to: &values, seenPaths: &seenPaths)
+        }
+
+        #if !APP_STORE
+        if !customBackendPath.isEmpty {
+            appendCandidate("Temporary external 7-Zip", URL(fileURLWithPath: customBackendPath), fullCapabilities, to: &values, seenPaths: &seenPaths)
         }
 
         for candidate in pathCandidates(pathEnvironment: pathEnvironment, capabilities: fullCapabilities) {
@@ -189,6 +198,7 @@ enum BackendLocator {
         ] {
             appendCandidate(candidate.0, candidate.1, candidate.2, to: &values, seenPaths: &seenPaths)
         }
+        #endif
 
         return values
     }

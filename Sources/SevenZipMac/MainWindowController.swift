@@ -29,7 +29,7 @@ final class MainWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        window.title = "7-Zip"
+        window.title = AppConfiguration.productName
         window.minSize = NSSize(width: 760, height: 420)
         window.backgroundColor = .windowBackgroundColor
         self.init(window: window)
@@ -173,7 +173,7 @@ final class MainWindowController: NSWindowController {
         mainMenu.addItem(appItem)
         let appMenu = NSMenu()
         appItem.submenu = appMenu
-        appMenu.addItem(withTitle: "Quit 7-Zip", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: "Quit \(AppConfiguration.productName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let fileItem = NSMenuItem()
         mainMenu.addItem(fileItem)
@@ -206,6 +206,12 @@ final class MainWindowController: NSWindowController {
         settingsItem.submenu = settingsMenu
         addMenuItem("Backend...", action: #selector(showBackendSettings), key: ",", modifiers: [.command], to: settingsMenu)
 
+        let helpItem = NSMenuItem()
+        mainMenu.addItem(helpItem)
+        let helpMenu = NSMenu(title: "Help")
+        helpItem.submenu = helpMenu
+        addMenuItem("Licenses and Attribution", action: #selector(showLicenses), key: "", modifiers: [], to: helpMenu)
+
         NSApp.mainMenu = mainMenu
     }
 
@@ -222,6 +228,56 @@ final class MainWindowController: NSWindowController {
         item.target = self
         menu.addItem(item)
         return item
+    }
+
+    @objc func showLicenses() {
+        let text: String
+        if let url = Bundle.main.resourceURL?.appendingPathComponent("ThirdPartyNotices.txt"),
+           let notices = try? String(contentsOf: url, encoding: .utf8) {
+            text = notices
+        } else {
+            text = "License notices are unavailable in this build."
+        }
+
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 520),
+            styleMask: [.titled, .closable, .resizable],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = "Licenses and Attribution"
+        panel.isReleasedWhenClosed = false
+
+        let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 660, height: 440))
+        textView.string = text
+        textView.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.textContainerInset = NSSize(width: 8, height: 8)
+        textView.autoresizingMask = [.width, .height]
+
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .bezelBorder
+        scrollView.documentView = textView
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        let contentView = NSView()
+        panel.contentView = contentView
+        contentView.addSubview(scrollView)
+        NSLayoutConstraint.activate([
+            scrollView.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
+            scrollView.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            scrollView.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
+            scrollView.bottomAnchor.constraint(equalTo: contentView.bottomAnchor, constant: -20)
+        ])
+
+        if let window {
+            panel.centerRelative(to: window)
+        } else {
+            panel.center()
+        }
+        panel.makeKeyAndOrderFront(nil)
     }
 
     private func makeContextMenu() -> NSMenu {
@@ -618,6 +674,10 @@ final class MainWindowController: NSWindowController {
     }
 
     @objc func showBackendSettings() {
+        #if APP_STORE
+        showAppStoreBackendSettings()
+        return
+        #else
         var temporaryPathValue = BackendLocator.customBackendPath
         let chooseResponse = NSApplication.ModalResponse(rawValue: 1001)
         let resetResponse = NSApplication.ModalResponse(rawValue: 1002)
@@ -826,6 +886,96 @@ final class MainWindowController: NSWindowController {
                 return
             }
         }
+        #endif
+    }
+
+    private func showAppStoreBackendSettings() {
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 760, height: 430),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = "Backend Settings"
+        panel.isReleasedWhenClosed = false
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.spacing = 12
+        stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let heading = NSTextField(labelWithString: "Bundled 7-Zip backend")
+        heading.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
+
+        let currentBackend = wrappingSettingsLabel(backendSettingsSummary(), width: 700)
+        let notice = wrappingSettingsLabel(AppConfiguration.appStorePolicyNotice, width: 700)
+        notice.textColor = .secondaryLabelColor
+
+        let candidatesLabel = NSTextField(labelWithString: "Bundled backend candidate")
+        candidatesLabel.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
+
+        let candidates = NSTextView(frame: NSRect(x: 0, y: 0, width: 700, height: 120))
+        candidates.string = backendCandidateSummary()
+        candidates.font = .monospacedSystemFont(ofSize: NSFont.smallSystemFontSize, weight: .regular)
+        candidates.textColor = .labelColor
+        candidates.isEditable = false
+        candidates.isSelectable = true
+        candidates.drawsBackground = true
+        candidates.backgroundColor = .textBackgroundColor
+        candidates.textContainerInset = NSSize(width: 6, height: 6)
+        candidates.textContainer?.widthTracksTextView = true
+
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.borderType = .bezelBorder
+        scrollView.documentView = candidates
+        scrollView.translatesAutoresizingMaskIntoConstraints = false
+
+        let buttons = NSStackView()
+        buttons.orientation = .horizontal
+        buttons.spacing = 10
+        buttons.alignment = .centerY
+        buttons.translatesAutoresizingMaskIntoConstraints = false
+        let spacer = NSView()
+        let closeButton = NSButton(title: "Close", target: nil, action: nil)
+        let closeTarget = ModalButtonTarget(response: .OK)
+        closeButton.bezelStyle = .rounded
+        closeButton.target = closeTarget
+        closeButton.action = #selector(ModalButtonTarget.closeModal(_:))
+        closeButton.keyEquivalent = "\r"
+        buttons.addArrangedSubview(spacer)
+        buttons.addArrangedSubview(closeButton)
+
+        stack.addArrangedSubview(heading)
+        stack.addArrangedSubview(currentBackend)
+        stack.addArrangedSubview(notice)
+        stack.addArrangedSubview(candidatesLabel)
+        stack.addArrangedSubview(scrollView)
+        stack.addArrangedSubview(buttons)
+
+        let contentView = NSView()
+        panel.contentView = contentView
+        contentView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            scrollView.widthAnchor.constraint(equalToConstant: 700),
+            scrollView.heightAnchor.constraint(equalToConstant: 120),
+            spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 600)
+        ])
+
+        if let window {
+            panel.centerRelative(to: window)
+        } else {
+            panel.center()
+        }
+        panel.makeKeyAndOrderFront(nil)
+        _ = NSApp.runModal(for: panel)
+        panel.orderOut(nil)
+        _ = closeTarget
     }
 
     private func backendSettingsSummary() -> String {
@@ -887,6 +1037,9 @@ final class MainWindowController: NSWindowController {
         ]
 
         var report: [String: Any] = [:]
+        report["productName"] = AppConfiguration.productName
+        report["distributionName"] = AppConfiguration.distributionName
+        report["allowsExternalBackends"] = AppConfiguration.allowsExternalBackends
         report["windowTitle"] = window?.title ?? ""
         report["windowIsVisible"] = window?.isVisible ?? false
         report["windowFrame"] = windowFrame

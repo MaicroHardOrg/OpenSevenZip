@@ -263,20 +263,32 @@ enum SelfTests {
     }
 
     private static func backendCandidatesUseExpectedPriority() throws {
+        #if APP_STORE
         let candidates = BackendLocator.candidateList(
             customBackendPath: "/opt/local/bin/7zz-custom",
-            resourceURL: URL(fileURLWithPath: "/Applications/7-Zip.app/Contents/Resources"),
+            resourceURL: URL(fileURLWithPath: "/Applications/OpenSevenZip Explorer.app/Contents/Resources"),
+            pathEnvironment: "/usr/local/bin:/opt/homebrew/bin"
+        )
+
+        try expect(AppConfiguration.allowsExternalBackends == false, "app store build disables external backends")
+        try expect(candidates.map(\.name) == ["Bundled official 7zz"], "app store candidate list contains only bundled backend")
+        try expect(candidates[0].url.path == "/Applications/OpenSevenZip Explorer.app/Contents/Resources/7zz", "app store bundled backend path")
+        try expect(candidates.allSatisfy { $0.capabilities.contains([.list, .extract, .add, .test, .delete, .rename]) }, "app store bundled backend capabilities")
+        #else
+        let candidates = BackendLocator.candidateList(
+            customBackendPath: "/opt/local/bin/7zz-custom",
+            resourceURL: URL(fileURLWithPath: "/Applications/OpenSevenZip Explorer.app/Contents/Resources"),
             pathEnvironment: "/tmp/no-7zip-bin"
         )
 
         try expect(
-            candidates.map(\.name).prefix(5) == ["Temporary external 7-Zip", "Bundled official 7zz", "Host /usr/local/bin/7z", "Host /usr/local/bin/7za", "Host /usr/local/bin/7zr"],
+            candidates.map(\.name).prefix(5) == ["Bundled official 7zz", "Temporary external 7-Zip", "Host /usr/local/bin/7z", "Host /usr/local/bin/7za", "Host /usr/local/bin/7zr"],
             "backend candidate priority"
         )
-        try expect(candidates[0].url.path == "/opt/local/bin/7zz-custom", "temporary external backend path")
-        try expect(candidates[1].url.path == "/Applications/7-Zip.app/Contents/Resources/7zz", "official backend resource path")
+        try expect(candidates[0].url.path == "/Applications/OpenSevenZip Explorer.app/Contents/Resources/7zz", "official backend resource path")
+        try expect(candidates[1].url.path == "/opt/local/bin/7zz-custom", "temporary external backend path")
         try expect(candidates.allSatisfy { $0.capabilities.contains([.list, .extract, .add, .test, .delete, .rename]) }, "backend capabilities")
-        let officialInfo = BackendInfo(name: candidates[1].name, executableURL: candidates[1].url, version: "", capabilities: candidates[1].capabilities)
+        let officialInfo = BackendInfo(name: candidates[0].name, executableURL: candidates[0].url, version: "", capabilities: candidates[0].capabilities)
         try expect(officialInfo.supportedCreateFormats == ["7z", "zip", "tar"], "official create formats")
 
         let fallbackOnly = BackendLocator.candidateList(customBackendPath: "", resourceURL: nil, pathEnvironment: "/tmp/no-7zip-bin")
@@ -295,6 +307,7 @@ enum SelfTests {
             try expect(pathCandidates.filter { $0.url.path == "/usr/local/bin/7z" }.count == 1, "dedupe PATH and fallback 7z")
         }
         try expect(BackendCapabilities([.list, .add, .test]).labels == ["List", "Add", "Test"], "capability labels")
+        #endif
     }
 
     private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {
