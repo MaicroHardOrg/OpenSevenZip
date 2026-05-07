@@ -1,5 +1,8 @@
 # OpenSevenZip Explorer
 
+> [!CAUTION]
+> This project is in very early development. Expect breaking changes, bugs, and incomplete features. Do not use in production.
+
 Native macOS/AppKit GUI for 7-Zip archive workflows. The app shares one Swift source tree and has two distribution builds:
 
 - Mac App Store/TestFlight build: sandboxed, bundled official `7zz` only.

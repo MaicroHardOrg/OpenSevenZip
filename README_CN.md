@@ -1,5 +1,8 @@
 # OpenSevenZip Explorer
 
+> [!CAUTION]
+> 本项目仍处于非常早期的开发阶段。预计会有破坏性变更、缺陷和未完成的功能。请勿用于生产环境。
+
 这是一个使用 Swift Package Manager 和 AppKit 构建的原生 macOS 压缩包图形界面。它不是官方 7-Zip File Manager。
 
 应用共享同一套 Swift 源码，并提供两个发行版本：
