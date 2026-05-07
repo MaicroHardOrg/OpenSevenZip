@@ -17,6 +17,8 @@ make package-appstore
 
 `make build-backend-universal` 会分别构建 `x86_64` 和 `arm64` 的官方 7-Zip `Alone2` 后端，并用 `lipo` 合并为通用 `Resources/7zz`。该二进制文件不会被 git 跟踪。
 
+打包后的应用会把后端 helper 放在 `Contents/MacOS/7zz`。
+
 ## 测试
 
 ```bash

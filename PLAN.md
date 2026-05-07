@@ -58,7 +58,7 @@ Build a Swift Package Manager macOS 14+ app in this standalone `7zip-mac-app` re
   - `make build-backend-universal` produces universal bundled `7zz`.
   - `make package-github` produces a universal GitHub `.app`.
   - `make package-appstore` produces a universal App Store/TestFlight `.app`.
-  - `make verify-architectures` confirms app and backend contain x86_64 and arm64 slices.
+  - `make verify-architectures` confirms app and `Contents/MacOS/7zz` backend contain x86_64 and arm64 slices.
 - Backend tests:
   - Done: parse `7z l -slt` output from official `7zz` and p7zip-style output.
   - Done: verify backend priority and fallback order for custom, bundled `7zz`, and p7zip binaries.

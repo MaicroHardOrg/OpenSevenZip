@@ -163,20 +163,20 @@ enum BackendLocator {
     }
 
     static func candidates() -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
-        candidateList(customBackendPath: customBackendPath, resourceURL: Bundle.main.resourceURL, pathEnvironment: ProcessInfo.processInfo.environment["PATH"])
+        candidateList(customBackendPath: customBackendPath, bundleURL: Bundle.main.bundleURL, pathEnvironment: ProcessInfo.processInfo.environment["PATH"])
     }
 
     static func candidateList(
         customBackendPath: String,
-        resourceURL: URL?,
+        bundleURL: URL?,
         pathEnvironment: String? = nil
     ) -> [(name: String, url: URL, capabilities: BackendCapabilities)] {
         let fullCapabilities: BackendCapabilities = [.list, .extract, .add, .test, .delete, .rename]
         var values: [(name: String, url: URL, capabilities: BackendCapabilities)] = []
         var seenPaths = Set<String>()
 
-        if let resourceURL {
-            appendCandidate("Bundled official 7zz", resourceURL.appendingPathComponent("7zz"), fullCapabilities, to: &values, seenPaths: &seenPaths)
+        if let bundleURL {
+            appendCandidate("Bundled official 7zz", bundledBackendURL(bundleURL: bundleURL), fullCapabilities, to: &values, seenPaths: &seenPaths)
         }
 
         #if !APP_STORE
@@ -201,6 +201,13 @@ enum BackendLocator {
         #endif
 
         return values
+    }
+
+    private static func bundledBackendURL(bundleURL: URL) -> URL {
+        bundleURL
+            .appendingPathComponent("Contents", isDirectory: true)
+            .appendingPathComponent("MacOS", isDirectory: true)
+            .appendingPathComponent("7zz")
     }
 
     private static func pathCandidates(

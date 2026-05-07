@@ -43,8 +43,8 @@ package-variant:
 	cp "$(INFO_PLIST)" "$(CONTENTS_DIR)/Info.plist"
 	cp "Resources/AppIcon.icns" "$(RESOURCES_DIR)/AppIcon.icns"
 	cp "Resources/ThirdPartyNotices.txt" "$(RESOURCES_DIR)/ThirdPartyNotices.txt"
-	if [ -x "Resources/7zz" ]; then cp "Resources/7zz" "$(RESOURCES_DIR)/7zz"; fi
-	if [ -x "$(RESOURCES_DIR)/7zz" ]; then codesign --force --options runtime --entitlements "$(HELPER_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(RESOURCES_DIR)/7zz"; fi
+	if [ -x "Resources/7zz" ]; then cp "Resources/7zz" "$(MACOS_DIR)/7zz"; fi
+	if [ -x "$(MACOS_DIR)/7zz" ]; then codesign --force --options runtime --entitlements "$(HELPER_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(MACOS_DIR)/7zz"; fi
 	codesign --force --options runtime --entitlements "$(APP_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(MACOS_DIR)/$(EXECUTABLE)"
 	codesign --force --options runtime --entitlements "$(APP_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(APP_DIR)"
 
@@ -74,7 +74,7 @@ test-appstore:
 
 verify-architectures:
 	lipo -info "$(MACOS_DIR)/$(EXECUTABLE)"
-	lipo -info "$(RESOURCES_DIR)/7zz"
+	lipo -info "$(MACOS_DIR)/7zz"
 
 install: package-github
 	cp -R "$(APP_DIR)" "/Applications/$(APP_NAME).app"

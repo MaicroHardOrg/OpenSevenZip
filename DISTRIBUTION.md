@@ -4,13 +4,19 @@
 
 - Build with `make build-backend-universal` and `make package-appstore`.
 - Confirm `lipo -info "dist/OpenSevenZip Explorer.app/Contents/MacOS/SevenZipMac"` reports `x86_64 arm64`.
-- Confirm `lipo -info "dist/OpenSevenZip Explorer.app/Contents/Resources/7zz"` reports `x86_64 arm64`.
+- Confirm `lipo -info "dist/OpenSevenZip Explorer.app/Contents/MacOS/7zz"` reports `x86_64 arm64`.
 - Sign with App Store distribution identities and provisioning instead of the default ad-hoc identity.
 - Confirm the app entitlement includes App Sandbox and user-selected file read/write access.
 - Confirm the bundled `7zz` helper entitlement includes sandbox inheritance.
 - Upload first to App Store Connect TestFlight and pass Beta App Review.
 - Test with internal testers, then external testers, before public App Store release.
 - Complete privacy labels, support URL, beta review notes, screenshots, category, and encryption export compliance.
+- Prepare App Store metadata placeholders before upload: app description, subtitle, keywords, support URL, marketing URL, review notes, beta feedback email, privacy labels, screenshots, and encryption export compliance.
+- Complete manual sandbox workflow testing:
+  - open archive through file picker
+  - extract to chosen folder
+  - add files through file picker
+  - drag/drop archive and files
 
 The App Store/TestFlight build intentionally disables PATH discovery and user-imported executables. It uses only the bundled reviewed `7zz` backend.
 
