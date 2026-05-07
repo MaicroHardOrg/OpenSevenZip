@@ -30,17 +30,19 @@ make test-appstore
 make run
 ```
 
-应用输出位置：
+GitHub 版本输出位置：
 
 ```text
-dist/OpenSevenZip Explorer.app
+dist/OpenSevenZip Explorer-gh.app
 ```
 
 也可以直接打开压缩包：
 
 ```bash
-open "dist/OpenSevenZip Explorer.app" --args /path/to/archive.7z
+open "dist/OpenSevenZip Explorer-gh.app" --args /path/to/archive.7z
 ```
+
+App Store/TestFlight 版本输出到 `dist/OpenSevenZip Explorer.app`。
 
 ## 说明
 

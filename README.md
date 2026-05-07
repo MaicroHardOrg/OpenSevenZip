@@ -34,17 +34,19 @@ The self-test target runs parser, backend command-construction, backend-priority
 make run
 ```
 
-The app bundle is written to:
+The GitHub app bundle is written to:
 
 ```text
-dist/OpenSevenZip Explorer.app
+dist/OpenSevenZip Explorer-gh.app
 ```
 
 You can also open an archive directly:
 
 ```bash
-open "dist/OpenSevenZip Explorer.app" --args /path/to/archive.7z
+open "dist/OpenSevenZip Explorer-gh.app" --args /path/to/archive.7z
 ```
+
+The App Store/TestFlight build is written to `dist/OpenSevenZip Explorer.app`.
 
 ## Current Features
 
