@@ -12,6 +12,10 @@ The app shares one Swift source tree and has two distribution builds:
 
 OpenSevenZip Explorer is an independent macOS application and is not the official [7-Zip File Manager](https://7-zip.org/).
 
+## Screenshot
+
+![OpenSevenZip Explorer main window](Docs/screenshot.png)
+
 ## Build
 
 ```bash
