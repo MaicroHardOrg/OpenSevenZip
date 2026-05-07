@@ -11,7 +11,7 @@
 	<key>CFBundleIconFile</key>
 	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
-	<string>com.mtc2000.opensevenzip-explorer</string>
+	<string>com.MaicroHard.opensevenzip-explorer</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -55,7 +55,7 @@
 	<key>NSHighResolutionCapable</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 mtc2000. 7-Zip is copyright Igor Pavlov and contributors.</string>
+	<string>Copyright © 2026 MaicroHard. 7-Zip is copyright Igor Pavlov and contributors.</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
 </dict>
