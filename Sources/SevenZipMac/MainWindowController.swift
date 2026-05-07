@@ -715,7 +715,7 @@ final class MainWindowController: NSWindowController {
             let saveButton = NSButton(title: "Use Selected", target: nil, action: nil)
             let temporaryButton = NSButton(title: "Use Temporary", target: nil, action: nil)
             let chooseButton = NSButton(title: "Choose...", target: nil, action: nil)
-            let resetButton = NSButton(title: "Reset", target: nil, action: nil)
+            let resetButton = NSButton(title: "Reset to Bundle", target: nil, action: nil)
             let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
             let saveTarget = ModalButtonTarget(response: .OK)
             let temporaryTarget = ModalButtonTarget(response: temporaryResponse)
@@ -737,10 +737,10 @@ final class MainWindowController: NSWindowController {
             cancelButton.keyEquivalent = "\u{1b}"
             temporaryPathRow.addArrangedSubview(chooseButton)
             temporaryPathRow.addArrangedSubview(field)
+            temporaryPathRow.addArrangedSubview(temporaryButton)
+            buttons.addArrangedSubview(cancelButton)
             buttons.addArrangedSubview(spacer)
             buttons.addArrangedSubview(resetButton)
-            buttons.addArrangedSubview(temporaryButton)
-            buttons.addArrangedSubview(cancelButton)
             buttons.addArrangedSubview(saveButton)
 
             stack.addArrangedSubview(heading)
@@ -760,10 +760,10 @@ final class MainWindowController: NSWindowController {
                 stack.topAnchor.constraint(equalTo: contentView.topAnchor),
                 stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
                 temporaryPathRow.widthAnchor.constraint(equalToConstant: 780),
-                field.widthAnchor.constraint(equalToConstant: 680),
+                field.widthAnchor.constraint(equalToConstant: 540),
                 scrollView.widthAnchor.constraint(equalToConstant: 780),
                 scrollView.heightAnchor.constraint(equalToConstant: 260),
-                spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 250)
+                spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 420)
             ])
 
             if let window {
