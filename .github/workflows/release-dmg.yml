@@ -1,0 +1,31 @@
+name: Release GitHub DMG
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release-dmg:
+    runs-on: macos-latest
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Build GitHub DMG
+        run: make dmg-github
+
+      - name: Check DMG hash
+        run: shasum -a 256 "dist/OpenSevenZip-Explorer-gh.dmg" > "dist/OpenSevenZip-Explorer-gh.dmg.sha256"
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/OpenSevenZip-Explorer-gh.dmg
+            dist/OpenSevenZip-Explorer-gh.dmg.sha256

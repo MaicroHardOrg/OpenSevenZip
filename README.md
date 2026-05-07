@@ -18,9 +18,11 @@ make package-appstore
 
 `make build-backend-universal` builds official 7-Zip `Alone2` for `x86_64` and `arm64`, combines both slices with `lipo`, and writes the generated universal backend to `Resources/7zz`. The binary is ignored by git and bundled into the app during packaging.
 
+`make fetch-official-backend` downloads the pinned official 7-Zip macOS release archive from `ip7z/7zip`, verifies the archive SHA-256, verifies the extracted `7zz` SHA-256, and writes `Resources/7zz`. If a local `Resources/7zz` already exists and matches the pinned binary hash, the target skips the download.
+
 Packaged app bundles embed the backend helper at `Contents/MacOS/7zz`.
 
-`make dmg-github` writes `dist/OpenSevenZip-Explorer-gh.dmg` and requires the bundled helper to be present in `dist/OpenSevenZip Explorer-gh.app/Contents/MacOS/7zz`. In CI, build or provide `Resources/7zz` before creating the DMG.
+`make dmg-github` depends on `make fetch-official-backend`, writes `dist/OpenSevenZip-Explorer-gh.dmg`, and requires the bundled helper to be present in `dist/OpenSevenZip Explorer-gh.app/Contents/MacOS/7zz`.
 
 `make build` is an alias for the GitHub build. Both release package targets build a universal Swift app by default.
 

@@ -12,6 +12,13 @@ APP_DIR := $(DIST_DIR)/$(APP_NAME).app
 CONTENTS_DIR := $(APP_DIR)/Contents
 MACOS_DIR := $(CONTENTS_DIR)/MacOS
 RESOURCES_DIR := $(CONTENTS_DIR)/Resources
+OFFICIAL_BACKEND := Resources/7zz
+SEVENZIP_VERSION ?= 26.01
+SEVENZIP_FILE_VERSION ?= 2601
+SEVENZIP_MAC_ARCHIVE := 7z$(SEVENZIP_FILE_VERSION)-mac.tar.xz
+SEVENZIP_MAC_URL ?= https://github.com/ip7z/7zip/releases/download/$(SEVENZIP_VERSION)/$(SEVENZIP_MAC_ARCHIVE)
+SEVENZIP_MAC_ARCHIVE_SHA256 ?= 0b6b930dbf82742e3f1014c35072a6b8b3aab183fece348e7f723675f1c5bea2
+SEVENZIP_MAC_BINARY_SHA256 ?= 4d1baeaa33a40e7d8189c746a46f1be2186cc125bfcabfb63989db4e1c319247
 SEVENZIP_ROOT := ../7zip
 OFFICIAL_BACKEND_DIR := $(SEVENZIP_ROOT)/CPP/7zip/Bundles/Alone2
 OFFICIAL_BACKEND_X64 := $(OFFICIAL_BACKEND_DIR)/b/m_x64/7zz
@@ -24,7 +31,7 @@ GITHUB_ENTITLEMENTS := Resources/Entitlements.github.plist
 APPSTORE_ENTITLEMENTS := Resources/Entitlements.appstore.plist
 APPSTORE_HELPER_ENTITLEMENTS := Resources/Entitlements.7zz.appstore.plist
 
-.PHONY: build run install clean build-backend build-backend-x64 build-backend-arm64 build-backend-universal package package-github package-appstore dmg-github test test-appstore verify-architectures
+.PHONY: build run install clean fetch-official-backend build-backend build-backend-x64 build-backend-arm64 build-backend-universal package package-github package-appstore dmg-github test test-appstore verify-architectures
 
 build: package-github
 
@@ -52,7 +59,7 @@ package-variant:
 	codesign --force --options runtime --entitlements "$(APP_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(MACOS_DIR)/$(EXECUTABLE)"
 	codesign --force --options runtime --entitlements "$(APP_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(APP_DIR)"
 
-dmg-github: package-github
+dmg-github: fetch-official-backend package-github
 	test -x "$(GITHUB_APP_DIR)/Contents/MacOS/7zz"
 	rm -rf "$(GITHUB_DMG_STAGING_DIR)" "$(GITHUB_DMG)"
 	mkdir -p "$(GITHUB_DMG_STAGING_DIR)"
@@ -61,6 +68,9 @@ dmg-github: package-github
 	hdiutil create -volname "$(GITHUB_APP_NAME)" -srcfolder "$(GITHUB_DMG_STAGING_DIR)" -ov -format UDZO "$(GITHUB_DMG)"
 	rm -rf "$(GITHUB_DMG_STAGING_DIR)"
 	ls -lh "$(GITHUB_DMG)"
+
+fetch-official-backend:
+	SEVENZIP_MAC_URL="$(SEVENZIP_MAC_URL)" SEVENZIP_MAC_ARCHIVE_SHA256="$(SEVENZIP_MAC_ARCHIVE_SHA256)" SEVENZIP_MAC_BINARY_SHA256="$(SEVENZIP_MAC_BINARY_SHA256)" OFFICIAL_BACKEND="$(OFFICIAL_BACKEND)" Scripts/fetch-official-7zz.sh
 
 build-backend: build-backend-universal
 
@@ -73,9 +83,9 @@ build-backend-arm64:
 build-backend-universal: build-backend-x64 build-backend-arm64
 	test -x "$(OFFICIAL_BACKEND_X64)"
 	test -x "$(OFFICIAL_BACKEND_ARM64)"
-	lipo -create -output "Resources/7zz" "$(OFFICIAL_BACKEND_X64)" "$(OFFICIAL_BACKEND_ARM64)"
-	chmod +x "Resources/7zz"
-	lipo -info "Resources/7zz"
+	lipo -create -output "$(OFFICIAL_BACKEND)" "$(OFFICIAL_BACKEND_X64)" "$(OFFICIAL_BACKEND_ARM64)"
+	chmod +x "$(OFFICIAL_BACKEND)"
+	lipo -info "$(OFFICIAL_BACKEND)"
 
 run: package-github
 	open "$(APP_DIR)"
