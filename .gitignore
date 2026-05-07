@@ -2,3 +2,4 @@
 dist/
 Resources/7zz
 .DS_Store
+.repo-ssh/
