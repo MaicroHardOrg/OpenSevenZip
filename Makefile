@@ -4,6 +4,10 @@ CONFIGURATION ?= release
 BUILD_DIR := .build/$(CONFIGURATION)
 UNIVERSAL_BUILD_DIR := .build/universal/$(CONFIGURATION)
 DIST_DIR := dist
+GITHUB_APP_NAME := OpenSevenZip Explorer-gh
+GITHUB_APP_DIR := $(DIST_DIR)/$(GITHUB_APP_NAME).app
+GITHUB_DMG := $(DIST_DIR)/OpenSevenZip-Explorer-gh.dmg
+GITHUB_DMG_STAGING_DIR := $(DIST_DIR)/dmg-github
 APP_DIR := $(DIST_DIR)/$(APP_NAME).app
 CONTENTS_DIR := $(APP_DIR)/Contents
 MACOS_DIR := $(CONTENTS_DIR)/MacOS
@@ -20,14 +24,14 @@ GITHUB_ENTITLEMENTS := Resources/Entitlements.github.plist
 APPSTORE_ENTITLEMENTS := Resources/Entitlements.appstore.plist
 APPSTORE_HELPER_ENTITLEMENTS := Resources/Entitlements.7zz.appstore.plist
 
-.PHONY: build run install clean build-backend build-backend-x64 build-backend-arm64 build-backend-universal package package-github package-appstore test test-appstore verify-architectures
+.PHONY: build run install clean build-backend build-backend-x64 build-backend-arm64 build-backend-universal package package-github package-appstore dmg-github test test-appstore verify-architectures
 
 build: package-github
 
 package: package-github
 
 package-github:
-	$(MAKE) package-variant APP_NAME="OpenSevenZip Explorer-gh" INFO_PLIST="$(GITHUB_INFO_PLIST)" APP_ENTITLEMENTS="$(GITHUB_ENTITLEMENTS)" HELPER_ENTITLEMENTS="$(GITHUB_ENTITLEMENTS)" SWIFT_FLAGS=""
+	$(MAKE) package-variant APP_NAME="$(GITHUB_APP_NAME)" INFO_PLIST="$(GITHUB_INFO_PLIST)" APP_ENTITLEMENTS="$(GITHUB_ENTITLEMENTS)" HELPER_ENTITLEMENTS="$(GITHUB_ENTITLEMENTS)" SWIFT_FLAGS=""
 
 package-appstore:
 	$(MAKE) package-variant APP_NAME="OpenSevenZip Explorer" INFO_PLIST="$(APPSTORE_INFO_PLIST)" APP_ENTITLEMENTS="$(APPSTORE_ENTITLEMENTS)" HELPER_ENTITLEMENTS="$(APPSTORE_HELPER_ENTITLEMENTS)" SWIFT_FLAGS="-Xswiftc -DAPP_STORE"
@@ -47,6 +51,16 @@ package-variant:
 	if [ -x "$(MACOS_DIR)/7zz" ]; then codesign --force --options runtime --entitlements "$(HELPER_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(MACOS_DIR)/7zz"; fi
 	codesign --force --options runtime --entitlements "$(APP_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(MACOS_DIR)/$(EXECUTABLE)"
 	codesign --force --options runtime --entitlements "$(APP_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(APP_DIR)"
+
+dmg-github: package-github
+	test -x "$(GITHUB_APP_DIR)/Contents/MacOS/7zz"
+	rm -rf "$(GITHUB_DMG_STAGING_DIR)" "$(GITHUB_DMG)"
+	mkdir -p "$(GITHUB_DMG_STAGING_DIR)"
+	cp -R "$(GITHUB_APP_DIR)" "$(GITHUB_DMG_STAGING_DIR)/"
+	ln -s /Applications "$(GITHUB_DMG_STAGING_DIR)/Applications"
+	hdiutil create -volname "$(GITHUB_APP_NAME)" -srcfolder "$(GITHUB_DMG_STAGING_DIR)" -ov -format UDZO "$(GITHUB_DMG)"
+	rm -rf "$(GITHUB_DMG_STAGING_DIR)"
+	ls -lh "$(GITHUB_DMG)"
 
 build-backend: build-backend-universal
 

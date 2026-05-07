@@ -22,8 +22,10 @@ The App Store/TestFlight build intentionally disables PATH discovery and user-im
 
 ## GitHub
 
-- Build with `make build-backend-universal` and `make package-github`.
+- Build with `make build-backend-universal` and `make dmg-github`.
 - The GitHub bundle is `dist/OpenSevenZip Explorer-gh.app`, so it does not overwrite the App Store/TestFlight bundle.
+- The GitHub DMG is `dist/OpenSevenZip-Explorer-gh.dmg`.
+- `Resources/7zz` is ignored by git. Release automation must build it from the adjacent 7-Zip source tree or provide it as a trusted release input before running `make dmg-github`.
 - Sign with a Developer ID Application identity.
 - Enable hardened runtime during signing.
 - Notarize with `xcrun notarytool`.

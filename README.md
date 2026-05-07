@@ -12,12 +12,15 @@ OpenSevenZip Explorer is an independent macOS application and is not the officia
 ```bash
 make build-backend-universal
 make package-github
+make dmg-github
 make package-appstore
 ```
 
 `make build-backend-universal` builds official 7-Zip `Alone2` for `x86_64` and `arm64`, combines both slices with `lipo`, and writes the generated universal backend to `Resources/7zz`. The binary is ignored by git and bundled into the app during packaging.
 
 Packaged app bundles embed the backend helper at `Contents/MacOS/7zz`.
+
+`make dmg-github` writes `dist/OpenSevenZip-Explorer-gh.dmg` and requires the bundled helper to be present in `dist/OpenSevenZip Explorer-gh.app/Contents/MacOS/7zz`. In CI, build or provide `Resources/7zz` before creating the DMG.
 
 `make build` is an alias for the GitHub build. Both release package targets build a universal Swift app by default.
 
