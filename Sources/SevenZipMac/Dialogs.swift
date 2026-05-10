@@ -23,9 +23,9 @@ enum Dialogs {
     static func showError(_ error: Error, in window: NSWindow?) {
         let alert = NSAlert()
         alert.alertStyle = .critical
-        alert.messageText = "7-Zip operation failed"
+        alert.messageText = L10n.string("app.operationFailed")
         alert.informativeText = String(describing: error)
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: L10n.string("button.ok"))
         if let window {
             alert.beginSheetModal(for: window)
         } else {
@@ -38,7 +38,7 @@ enum Dialogs {
         alert.alertStyle = .informational
         alert.messageText = message
         alert.informativeText = detail
-        alert.addButton(withTitle: "OK")
+        alert.addButton(withTitle: L10n.string("button.ok"))
         if let window {
             alert.beginSheetModal(for: window)
         } else {
@@ -49,12 +49,12 @@ enum Dialogs {
     static func askPassword(message: String, defaultValue: String? = nil, in window: NSWindow?) -> String? {
         let alert = NSAlert()
         alert.messageText = message
-        alert.informativeText = "Leave blank if the archive is not encrypted."
-        alert.addButton(withTitle: "Continue")
-        alert.addButton(withTitle: "Cancel")
+        alert.informativeText = L10n.string("password.blankHint")
+        alert.addButton(withTitle: L10n.string("button.continue"))
+        alert.addButton(withTitle: L10n.string("button.cancel"))
 
         let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        field.placeholderString = "Password"
+        field.placeholderString = L10n.string("password.label")
         field.stringValue = defaultValue ?? ""
         alert.accessoryView = field
 
@@ -69,10 +69,10 @@ enum Dialogs {
 
     static func askExtractOptions(destination: URL, defaultPassword: String?, in window: NSWindow?) -> ExtractOptions? {
         let alert = NSAlert()
-        alert.messageText = "Extract Options"
+        alert.messageText = L10n.string("extract.title")
         alert.informativeText = destination.path
-        alert.addButton(withTitle: "Extract")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: L10n.string("toolbar.extract"))
+        alert.addButton(withTitle: L10n.string("button.cancel"))
 
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -80,13 +80,13 @@ enum Dialogs {
         stack.translatesAutoresizingMaskIntoConstraints = false
 
         let passwordField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
-        passwordField.placeholderString = "Password"
+        passwordField.placeholderString = L10n.string("password.label")
         passwordField.stringValue = defaultPassword ?? ""
 
-        let overwriteButton = NSButton(checkboxWithTitle: "Overwrite existing files", target: nil, action: nil)
+        let overwriteButton = NSButton(checkboxWithTitle: L10n.string("extract.overwrite"), target: nil, action: nil)
         overwriteButton.state = .on
 
-        let openDestinationButton = NSButton(checkboxWithTitle: "Show destination after extraction", target: nil, action: nil)
+        let openDestinationButton = NSButton(checkboxWithTitle: L10n.string("extract.showDestination"), target: nil, action: nil)
         openDestinationButton.state = .on
 
         stack.addArrangedSubview(passwordField)
@@ -115,12 +115,12 @@ enum Dialogs {
 
     static func askAddOptions(archive: URL, availableFormats: [String], in window: NSWindow?) -> AddOptions? {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 390),
+            contentRect: NSRect(x: 0, y: 0, width: 700, height: 430),
             styleMask: [.titled],
             backing: .buffered,
             defer: false
         )
-        panel.title = "Archive Options"
+        panel.title = L10n.string("add.createPanel")
         panel.isReleasedWhenClosed = false
 
         let root = NSStackView()
@@ -136,24 +136,31 @@ enum Dialogs {
         formatPopup.selectItem(withTitle: formats.contains(extensionFormat) ? extensionFormat : formats[0])
 
         let levelPopup = NSPopUpButton(frame: .zero)
-        let levels = ["Store (0)", "Fastest (1)", "Fast (3)", "Normal (5)", "Maximum (7)", "Ultra (9)"]
+        let levels = [
+            "\(L10n.string("add.method.store")) (0)",
+            "\(L10n.string("add.method.fastest")) (1)",
+            "\(L10n.string("add.method.fast")) (3)",
+            "\(L10n.string("add.method.normal")) (5)",
+            "\(L10n.string("add.method.maximum")) (7)",
+            "\(L10n.string("add.method.ultra")) (9)"
+        ]
         levelPopup.addItems(withTitles: levels)
-        levelPopup.selectItem(withTitle: "Normal (5)")
+        levelPopup.selectItem(withTitle: "\(L10n.string("add.method.normal")) (5)")
 
         let passwordField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        passwordField.placeholderString = "Password"
+        passwordField.placeholderString = L10n.string("password.label")
 
-        let encryptHeadersButton = NSButton(checkboxWithTitle: "Encrypt file names when supported", target: nil, action: nil)
+        let encryptHeadersButton = NSButton(checkboxWithTitle: L10n.string("add.encryptFileNamesSupported"), target: nil, action: nil)
         encryptHeadersButton.state = .on
 
         let volumeField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        volumeField.placeholderString = "Split size, for example 100m"
+        volumeField.placeholderString = L10n.string("add.splitPlaceholder")
 
         let includeField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        includeField.placeholderString = "*.txt, docs/*"
+        includeField.placeholderString = L10n.string("add.includePlaceholder")
 
         let excludeField = NSTextField(frame: NSRect(x: 0, y: 0, width: 260, height: 24))
-        excludeField.placeholderString = "*.tmp, .DS_Store"
+        excludeField.placeholderString = L10n.string("add.excludePlaceholder")
 
         let pathLabel = wrappingLabel(archive.path, width: 560)
 
@@ -161,13 +168,13 @@ enum Dialogs {
         stack.orientation = .vertical
         stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(formRow(label: "Format", control: formatPopup))
-        stack.addArrangedSubview(formRow(label: "Compression", control: levelPopup))
-        stack.addArrangedSubview(formRow(label: "Password", control: passwordField))
+        stack.addArrangedSubview(formRow(label: L10n.string("add.archiveFormat"), control: formatPopup))
+        stack.addArrangedSubview(formRow(label: L10n.string("add.compressionLevel"), control: levelPopup))
+        stack.addArrangedSubview(formRow(label: L10n.string("password.label"), control: passwordField))
         stack.addArrangedSubview(formRow(label: "", control: encryptHeadersButton))
-        stack.addArrangedSubview(formRow(label: "Split volumes", control: volumeField))
-        stack.addArrangedSubview(formRow(label: "Include", control: includeField))
-        stack.addArrangedSubview(formRow(label: "Exclude", control: excludeField))
+        stack.addArrangedSubview(formRow(label: L10n.string("split.toVolumesBytes"), control: volumeField))
+        stack.addArrangedSubview(formRow(label: L10n.string("add.include"), control: includeField))
+        stack.addArrangedSubview(formRow(label: L10n.string("add.exclude"), control: excludeField))
 
         let buttons = NSStackView()
         buttons.orientation = .horizontal
@@ -175,10 +182,10 @@ enum Dialogs {
         buttons.spacing = 10
         buttons.translatesAutoresizingMaskIntoConstraints = false
         let spacer = NSView()
-        let createButton = NSButton(title: "Create", target: nil, action: nil)
+        let createButton = NSButton(title: L10n.string("button.create"), target: nil, action: nil)
         createButton.bezelStyle = .rounded
         createButton.keyEquivalent = "\r"
-        let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+        let cancelButton = NSButton(title: L10n.string("button.cancel"), target: nil, action: nil)
         cancelButton.bezelStyle = .rounded
         cancelButton.keyEquivalent = "\u{1b}"
         let createTarget = ModalButtonTarget(response: .OK)
@@ -203,8 +210,8 @@ enum Dialogs {
             root.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
             root.topAnchor.constraint(equalTo: contentView.topAnchor),
             root.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
-            stack.widthAnchor.constraint(equalToConstant: 560),
-            spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 260)
+            stack.widthAnchor.constraint(equalToConstant: 640),
+            spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 320)
         ])
 
         if let window {
@@ -250,8 +257,8 @@ enum Dialogs {
         row.addArrangedSubview(control)
 
         NSLayoutConstraint.activate([
-            label.widthAnchor.constraint(equalToConstant: 112),
-            control.widthAnchor.constraint(equalToConstant: 300)
+            label.widthAnchor.constraint(equalToConstant: 170),
+            control.widthAnchor.constraint(equalToConstant: 360)
         ])
         return row
     }

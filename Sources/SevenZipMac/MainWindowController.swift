@@ -2,10 +2,11 @@ import AppKit
 
 @MainActor
 final class MainWindowController: NSWindowController {
-    private let pathField = NSTextField(labelWithString: "No archive open")
-    private let statusField = NSTextField(labelWithString: "Detecting backend...")
+    private let pathField = NSTextField(labelWithString: L10n.string("app.noArchiveOpen"))
+    private let statusField = NSTextField(labelWithString: L10n.string("app.detectingBackend"))
     private let progress = NSProgressIndicator()
-    private let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+    private let cancelButton = NSButton(title: L10n.string("button.cancel"), target: nil, action: nil)
+    private let upButton = NSButton(title: L10n.string("nav.upOneLevel"), target: nil, action: nil)
     private let tableView = ArchiveTableView()
     private let scrollView = NSScrollView()
 
@@ -46,13 +47,16 @@ final class MainWindowController: NSWindowController {
         window.delegate = self
         window.toolbar = makeToolbar()
         installMainMenu()
+        NotificationCenter.default.addObserver(self, selector: #selector(languageDidChange), name: L10n.languageDidChange, object: nil)
 
         let pathBar = NSView()
         pathBar.translatesAutoresizingMaskIntoConstraints = false
         pathBar.wantsLayer = true
         pathBar.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
 
-        let upButton = NSButton(title: "Up", target: self, action: #selector(goUp))
+        upButton.title = L10n.string("nav.upOneLevel")
+        upButton.target = self
+        upButton.action = #selector(goUp)
         upButton.bezelStyle = .rounded
         upButton.translatesAutoresizingMaskIntoConstraints = false
         pathField.alignment = .left
@@ -64,7 +68,7 @@ final class MainWindowController: NSWindowController {
         pathBar.addSubview(pathField)
         NSLayoutConstraint.activate([
             upButton.leftAnchor.constraint(equalTo: pathBar.leftAnchor),
-            upButton.widthAnchor.constraint(equalToConstant: 48),
+            upButton.widthAnchor.constraint(equalToConstant: 112),
             upButton.centerYAnchor.constraint(equalTo: pathBar.centerYAnchor),
             pathField.leftAnchor.constraint(equalTo: upButton.rightAnchor, constant: 8),
             pathField.rightAnchor.constraint(equalTo: pathBar.rightAnchor, constant: -12),
@@ -114,12 +118,12 @@ final class MainWindowController: NSWindowController {
         tableView.menu = makeContextMenu()
         tableView.registerForDraggedTypes([.fileURL])
 
-        addColumn("name", title: "Name", width: 390)
-        addColumn("size", title: "Size", width: 110)
-        addColumn("packed", title: "Packed", width: 110)
-        addColumn("modified", title: "Modified", width: 180)
-        addColumn("attributes", title: "Attr", width: 80)
-        addColumn("encrypted", title: "Encrypted", width: 90)
+        addColumn("name", title: L10n.string("table.name"), width: 390)
+        addColumn("size", title: L10n.string("table.size"), width: 110)
+        addColumn("packed", title: L10n.string("table.packed"), width: 120)
+        addColumn("modified", title: L10n.string("table.modified"), width: 180)
+        addColumn("attributes", title: L10n.string("table.attr"), width: 90)
+        addColumn("encrypted", title: L10n.string("table.encrypted"), width: 100)
         tableView.sortDescriptors = activeSortDescriptors
 
         scrollView.documentView = tableView
@@ -173,46 +177,77 @@ final class MainWindowController: NSWindowController {
         mainMenu.addItem(appItem)
         let appMenu = NSMenu()
         appItem.submenu = appMenu
-        appMenu.addItem(withTitle: "Quit \(AppConfiguration.productName)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appMenu.addItem(withTitle: L10n.format("menu.quit", AppConfiguration.productName), action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
 
         let fileItem = NSMenuItem()
         mainMenu.addItem(fileItem)
-        let fileMenu = NSMenu(title: "File")
+        let fileMenu = NSMenu(title: L10n.string("menu.file"))
         fileItem.submenu = fileMenu
-        addMenuItem("Open Archive...", action: #selector(openArchivePanel), key: "o", modifiers: [.command], to: fileMenu)
-        addMenuItem("Add Files...", action: #selector(addFiles), key: "n", modifiers: [.command], to: fileMenu)
+        addMenuItem(L10n.string("archive.openArchive"), action: #selector(openArchivePanel), key: "o", modifiers: [.command], to: fileMenu)
+        addMenuItem(L10n.string("archive.addToArchiveEllipsis"), action: #selector(addFiles), key: "n", modifiers: [.command], to: fileMenu)
         fileMenu.addItem(.separator())
-        addMenuItem("Extract...", action: #selector(extractSelected), key: "e", modifiers: [.command], to: fileMenu)
-        addMenuItem("Test Archive", action: #selector(testArchive), key: "t", modifiers: [.command], to: fileMenu)
-        addMenuItem("Archive Password...", action: #selector(askPasswordAndReload), key: "l", modifiers: [.command], to: fileMenu)
+        addMenuItem(L10n.string("archive.extractFiles"), action: #selector(extractSelected), key: "e", modifiers: [.command], to: fileMenu)
+        addMenuItem(L10n.string("archive.testArchive"), action: #selector(testArchive), key: "t", modifiers: [.command], to: fileMenu)
+        addMenuItem(L10n.string("menu.archivePassword"), action: #selector(askPasswordAndReload), key: "l", modifiers: [.command], to: fileMenu)
 
         let editItem = NSMenuItem()
         mainMenu.addItem(editItem)
-        let editMenu = NSMenu(title: "Edit")
+        let editMenu = NSMenu(title: L10n.string("menu.edit"))
         editItem.submenu = editMenu
-        addMenuItem("Rename", action: #selector(renameSelected), key: "\r", modifiers: [], to: editMenu)
-        addMenuItem("Delete", action: #selector(deleteSelected), key: "\u{8}", modifiers: [], to: editMenu)
+        addMenuItem(L10n.string("action.rename"), action: #selector(renameSelected), key: "\r", modifiers: [], to: editMenu)
+        addMenuItem(L10n.string("action.delete"), action: #selector(deleteSelected), key: "\u{8}", modifiers: [], to: editMenu)
 
         let navigateItem = NSMenuItem()
         mainMenu.addItem(navigateItem)
-        let navigateMenu = NSMenu(title: "Navigate")
+        let navigateMenu = NSMenu(title: L10n.string("menu.view"))
         navigateItem.submenu = navigateMenu
-        addMenuItem("Open Selected", action: #selector(openSelectedEntry), key: "\r", modifiers: [.command], to: navigateMenu)
-        addMenuItem("Up", action: #selector(goUp), key: String(UnicodeScalar(NSUpArrowFunctionKey)!), modifiers: [.command], to: navigateMenu)
+        addMenuItem(L10n.string("menu.openSelected"), action: #selector(openSelectedEntry), key: "\r", modifiers: [.command], to: navigateMenu)
+        addMenuItem(L10n.string("nav.upOneLevel"), action: #selector(goUp), key: String(UnicodeScalar(NSUpArrowFunctionKey)!), modifiers: [.command], to: navigateMenu)
 
-        let settingsItem = NSMenuItem()
-        mainMenu.addItem(settingsItem)
-        let settingsMenu = NSMenu(title: "Settings")
-        settingsItem.submenu = settingsMenu
-        addMenuItem("Backend...", action: #selector(showBackendSettings), key: ",", modifiers: [.command], to: settingsMenu)
+        let toolsItem = NSMenuItem()
+        mainMenu.addItem(toolsItem)
+        let toolsMenu = NSMenu(title: L10n.string("menu.tools"))
+        toolsItem.submenu = toolsMenu
+        addMenuItem(L10n.string("action.options"), action: #selector(showOptions), key: ",", modifiers: [.command], to: toolsMenu)
+        addMenuItem(L10n.string("options.backendSettings"), action: #selector(showBackendSettings), key: "", modifiers: [], to: toolsMenu)
 
         let helpItem = NSMenuItem()
         mainMenu.addItem(helpItem)
-        let helpMenu = NSMenu(title: "Help")
+        let helpMenu = NSMenu(title: L10n.string("menu.help"))
         helpItem.submenu = helpMenu
-        addMenuItem("Licenses and Attribution", action: #selector(showLicenses), key: "", modifiers: [], to: helpMenu)
+        addMenuItem(L10n.string("menu.licenses"), action: #selector(showLicenses), key: "", modifiers: [], to: helpMenu)
 
         NSApp.mainMenu = mainMenu
+    }
+
+    @objc private func languageDidChange() {
+        refreshLocalizedText()
+    }
+
+    private func refreshLocalizedText() {
+        window?.title = AppConfiguration.productName
+        upButton.title = L10n.string("nav.upOneLevel")
+        cancelButton.title = L10n.string("button.cancel")
+        installMainMenu()
+        window?.toolbar = makeToolbar()
+        tableView.menu = makeContextMenu()
+        for column in tableView.tableColumns {
+            switch column.identifier.rawValue {
+            case "name": column.title = L10n.string("table.name")
+            case "size": column.title = L10n.string("table.size")
+            case "packed": column.title = L10n.string("table.packed")
+            case "modified": column.title = L10n.string("table.modified")
+            case "attributes": column.title = L10n.string("table.attr")
+            case "encrypted": column.title = L10n.string("table.encrypted")
+            default: break
+            }
+        }
+        if archiveURL == nil, currentDirectoryURL == nil {
+            pathField.stringValue = L10n.string("app.noArchiveOpen")
+        } else if archiveURL != nil {
+            refreshVisibleEntries()
+        }
+        tableView.reloadData()
     }
 
     @discardableResult
@@ -236,7 +271,7 @@ final class MainWindowController: NSWindowController {
            let notices = try? String(contentsOf: url, encoding: .utf8) {
             text = notices
         } else {
-            text = "License notices are unavailable in this build."
+            text = L10n.string("app.licenseUnavailable")
         }
 
         let panel = NSPanel(
@@ -245,7 +280,7 @@ final class MainWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        panel.title = "Licenses and Attribution"
+        panel.title = L10n.string("app.licensesTitle")
         panel.isReleasedWhenClosed = false
 
         let textView = NSTextView(frame: NSRect(x: 0, y: 0, width: 660, height: 440))
@@ -281,20 +316,127 @@ final class MainWindowController: NSWindowController {
     }
 
     private func makeContextMenu() -> NSMenu {
-        let menu = NSMenu(title: "Archive")
-        addMenuItem("Open", action: #selector(openSelectedEntry), key: "", modifiers: [], to: menu)
-        addMenuItem("Extract...", action: #selector(extractSelected), key: "", modifiers: [], to: menu)
-        addMenuItem("Rename...", action: #selector(renameSelected), key: "", modifiers: [], to: menu)
-        addMenuItem("Delete", action: #selector(deleteSelected), key: "", modifiers: [], to: menu)
+        let menu = NSMenu(title: L10n.string("archive.openArchive"))
+        addMenuItem(L10n.string("action.open"), action: #selector(openSelectedEntry), key: "", modifiers: [], to: menu)
+        addMenuItem(L10n.string("archive.extractFiles"), action: #selector(extractSelected), key: "", modifiers: [], to: menu)
+        addMenuItem(L10n.string("action.rename"), action: #selector(renameSelected), key: "", modifiers: [], to: menu)
+        addMenuItem(L10n.string("action.delete"), action: #selector(deleteSelected), key: "", modifiers: [], to: menu)
         menu.addItem(.separator())
-        addMenuItem("Test Archive", action: #selector(testArchive), key: "", modifiers: [], to: menu)
-        addMenuItem("Password...", action: #selector(askPasswordAndReload), key: "", modifiers: [], to: menu)
-        addMenuItem("Backend...", action: #selector(showBackendSettings), key: "", modifiers: [], to: menu)
+        addMenuItem(L10n.string("archive.testArchive"), action: #selector(testArchive), key: "", modifiers: [], to: menu)
+        addMenuItem(L10n.string("password.label"), action: #selector(askPasswordAndReload), key: "", modifiers: [], to: menu)
+        addMenuItem(L10n.string("options.backend"), action: #selector(showBackendSettings), key: "", modifiers: [], to: menu)
         return menu
     }
 
+    @objc func showOptions() {
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 560, height: 300),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = L10n.string("options.title")
+        panel.isReleasedWhenClosed = false
+
+        let stack = NSStackView()
+        stack.orientation = .vertical
+        stack.spacing = 14
+        stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+        stack.translatesAutoresizingMaskIntoConstraints = false
+
+        let languageHeading = NSTextField(labelWithString: L10n.string("options.language"))
+        languageHeading.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
+
+        let hint = wrappingSettingsLabel(L10n.string("options.selectLanguage"), width: 500)
+        hint.textColor = .secondaryLabelColor
+
+        let popup = NSPopUpButton(frame: .zero)
+        popup.addItem(withTitle: L10n.string("options.systemDefault"))
+        for language in L10n.supportedLanguages {
+            popup.addItem(withTitle: language.displayName)
+            popup.lastItem?.representedObject = language.code
+        }
+        if let selected = L10n.selectedLanguageCode,
+           let index = L10n.supportedLanguages.firstIndex(where: { $0.code == selected }) {
+            popup.selectItem(at: index + 1)
+        } else {
+            popup.selectItem(at: 0)
+        }
+
+        let languageRow = NSStackView()
+        languageRow.orientation = .horizontal
+        languageRow.alignment = .centerY
+        languageRow.spacing = 12
+        let label = NSTextField(labelWithString: L10n.string("options.languageLabel"))
+        label.alignment = .right
+        languageRow.addArrangedSubview(label)
+        languageRow.addArrangedSubview(popup)
+
+        let backendButton = NSButton(title: L10n.string("options.backendSettings"), target: self, action: #selector(openBackendSettingsFromOptions(_:)))
+        backendButton.bezelStyle = .rounded
+
+        let buttons = NSStackView()
+        buttons.orientation = .horizontal
+        buttons.alignment = .centerY
+        buttons.spacing = 10
+        let spacer = NSView()
+        let cancelButton = NSButton(title: L10n.string("button.cancel"), target: nil, action: nil)
+        let okButton = NSButton(title: L10n.string("button.ok"), target: nil, action: nil)
+        let cancelTarget = ModalButtonTarget(response: .cancel)
+        let okTarget = ModalButtonTarget(response: .OK)
+        for (button, target) in [(cancelButton, cancelTarget), (okButton, okTarget)] {
+            button.bezelStyle = .rounded
+            button.target = target
+            button.action = #selector(ModalButtonTarget.closeModal(_:))
+        }
+        okButton.keyEquivalent = "\r"
+        cancelButton.keyEquivalent = "\u{1b}"
+        buttons.addArrangedSubview(cancelButton)
+        buttons.addArrangedSubview(spacer)
+        buttons.addArrangedSubview(okButton)
+
+        stack.addArrangedSubview(languageHeading)
+        stack.addArrangedSubview(hint)
+        stack.addArrangedSubview(languageRow)
+        stack.addArrangedSubview(backendButton)
+        stack.addArrangedSubview(buttons)
+
+        let contentView = NSView()
+        panel.contentView = contentView
+        contentView.addSubview(stack)
+        NSLayoutConstraint.activate([
+            stack.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            stack.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: contentView.topAnchor),
+            stack.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            label.widthAnchor.constraint(equalToConstant: 130),
+            popup.widthAnchor.constraint(equalToConstant: 320),
+            spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 300)
+        ])
+
+        if let window {
+            panel.centerRelative(to: window)
+        } else {
+            panel.center()
+        }
+        panel.makeKeyAndOrderFront(nil)
+        let response = NSApp.runModal(for: panel)
+        panel.orderOut(nil)
+        _ = [cancelTarget, okTarget]
+        guard response == .OK else { return }
+        L10n.setSelectedLanguageCode(popup.selectedItem?.representedObject as? String)
+    }
+
+    @objc private func openBackendSettingsFromOptions(_ sender: Any?) {
+        NSApp.stopModal(withCode: .cancel)
+        if let view = sender as? NSView {
+            view.window?.orderOut(nil)
+        }
+        showBackendSettings()
+    }
+
     private func detectBackend() async {
-        setBusy(true, message: "Detecting backend...")
+        setBusy(true, message: L10n.string("app.detectingBackend"))
         backend = await BackendLocator.defaultBackend()
         setBusy(false, message: backend.map { "\($0.info.name): \($0.info.version)" } ?? AppError.noBackend.description)
     }
@@ -309,12 +451,12 @@ final class MainWindowController: NSWindowController {
             return
         }
 
-        runOperation(startMessage: "Listing \(archiveURL.lastPathComponent)...", failureMessage: "List failed") { [self] progress in
+        runOperation(startMessage: L10n.format("list.listing", archiveURL.lastPathComponent), failureMessage: L10n.string("list.failed")) { [self] progress in
             allEntries = try await backend.list(archive: archiveURL, password: password, progress: progress)
             archivePassword = password
             currentPath = ""
             refreshVisibleEntries()
-            return "\(allEntries.count) entries loaded from \(archiveURL.lastPathComponent)"
+            return L10n.format("list.loaded", allEntries.count)
         }
     }
 
@@ -332,7 +474,7 @@ final class MainWindowController: NSWindowController {
         }
 
         visibleEntries = sortedEntries(children)
-        pathField.stringValue = archiveURL.map { "\($0.path)\(currentPath.isEmpty ? "" : " / \(currentPath)")" } ?? "No archive open"
+        pathField.stringValue = archiveURL.map { "\($0.path)\(currentPath.isEmpty ? "" : " / \(currentPath)")" } ?? L10n.string("app.noArchiveOpen")
         tableView.reloadData()
     }
 
@@ -420,12 +562,12 @@ final class MainWindowController: NSWindowController {
 
             pathField.stringValue = directoryURL.path
             tableView.reloadData()
-            setBusy(false, message: "\(visibleEntries.count) items in \(directoryURL.path)")
+            setBusy(false, message: L10n.format("folder.items", visibleEntries.count, directoryURL.path))
         } catch {
             visibleEntries = []
             pathField.stringValue = directoryURL.path
             tableView.reloadData()
-            setBusy(false, message: "Cannot open folder")
+            setBusy(false, message: L10n.string("folder.cannotOpen"))
             Dialogs.showError(error, in: window)
         }
     }
@@ -467,7 +609,7 @@ final class MainWindowController: NSWindowController {
                 let successMessage = try await operation(progress)
                 finishOperation(operationID, message: successMessage)
             } catch is CancellationError {
-                finishOperation(operationID, message: "Cancelled")
+                finishOperation(operationID, message: L10n.string("operation.cancelled"))
             } catch {
                 guard finishOperation(operationID, message: failureMessage) else { return }
                 Dialogs.showError(error, in: window)
@@ -495,12 +637,12 @@ final class MainWindowController: NSWindowController {
 
     @objc private func cancelCurrentOperation() {
         currentOperationTask?.cancel()
-        setBusy(true, message: "Cancelling...")
+        setBusy(true, message: L10n.string("operation.cancelling"))
     }
 
     @objc func openArchivePanel() {
         let panel = NSOpenPanel()
-        panel.title = "Open Archive"
+        panel.title = L10n.string("archive.openArchive")
         panel.canChooseDirectories = false
         panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -519,7 +661,7 @@ final class MainWindowController: NSWindowController {
             Dialogs.showError(AppError.noArchiveSelected, in: window)
             return
         }
-        if let password = Dialogs.askPassword(message: "Archive password", in: window) {
+        if let password = Dialogs.askPassword(message: L10n.string("password.archivePassword"), in: window) {
             reloadArchive(password: password)
         }
     }
@@ -530,12 +672,12 @@ final class MainWindowController: NSWindowController {
             return
         }
         guard backend.capabilities.contains(.extract) else {
-            Dialogs.showError(AppError.unsupportedOperation("extract", backend.info.name), in: window)
+            Dialogs.showError(AppError.unsupportedOperation(L10n.string("toolbar.extract"), backend.info.name), in: window)
             return
         }
 
         let panel = NSOpenPanel()
-        panel.title = "Extract To"
+        panel.title = L10n.string("extract.destinationPanel")
         panel.canChooseFiles = false
         panel.canChooseDirectories = true
         panel.canCreateDirectories = true
@@ -547,7 +689,7 @@ final class MainWindowController: NSWindowController {
             archivePassword = options.password
         }
 
-        runOperation(startMessage: "Extracting...", failureMessage: "Extract failed") { progress in
+        runOperation(startMessage: L10n.string("progress.extracting"), failureMessage: L10n.string("extract.failed")) { progress in
             try await backend.extract(
                 archive: archiveURL,
                 entries: entries,
@@ -559,7 +701,7 @@ final class MainWindowController: NSWindowController {
             if options.openDestination {
                 NSWorkspace.shared.activateFileViewerSelecting([options.destination])
             }
-            return "Extracted to \(options.destination.path)"
+            return L10n.format("extract.done", options.destination.path)
         }
     }
 
@@ -569,31 +711,31 @@ final class MainWindowController: NSWindowController {
             return
         }
         guard backend.capabilities.contains(.add) else {
-            Dialogs.showError(AppError.unsupportedOperation("add", backend.info.name), in: window)
+            Dialogs.showError(AppError.unsupportedOperation(L10n.string("toolbar.add"), backend.info.name), in: window)
             return
         }
 
         let openPanel = NSOpenPanel()
-        openPanel.title = "Choose Files To Add"
+        openPanel.title = L10n.string("add.chooseFiles")
         openPanel.canChooseFiles = true
         openPanel.canChooseDirectories = true
         openPanel.allowsMultipleSelection = true
         guard openPanel.runModal() == .OK, !openPanel.urls.isEmpty else { return }
 
         let savePanel = NSSavePanel()
-        savePanel.title = "Create Archive"
+        savePanel.title = L10n.string("add.createPanel")
         savePanel.nameFieldStringValue = "Archive.7z"
         guard savePanel.runModal() == .OK, let archive = savePanel.url else { return }
         guard let options = Dialogs.askAddOptions(archive: archive, availableFormats: backend.info.supportedCreateFormats, in: window) else { return }
 
-        runOperation(startMessage: "Creating \(options.archive.lastPathComponent)...", failureMessage: "Add failed") { [self] progress in
+        runOperation(startMessage: L10n.format("add.creating", options.archive.lastPathComponent), failureMessage: L10n.string("add.failed")) { [self] progress in
             try await backend.add(items: openPanel.urls, options: options, progress: progress)
             currentDirectoryURL = nil
             archivePassword = options.password
             archiveURL = options.archive
             allEntries = try await backend.list(archive: options.archive, password: options.password, progress: progress)
             refreshVisibleEntries()
-            return "Created \(options.archive.lastPathComponent)"
+            return L10n.format("add.created", options.archive.lastPathComponent)
         }
     }
 
@@ -603,12 +745,12 @@ final class MainWindowController: NSWindowController {
             return
         }
         guard backend.capabilities.contains(.test) else {
-            Dialogs.showError(AppError.unsupportedOperation("test", backend.info.name), in: window)
+            Dialogs.showError(AppError.unsupportedOperation(L10n.string("toolbar.test"), backend.info.name), in: window)
             return
         }
-        runOperation(startMessage: "Testing \(archiveURL.lastPathComponent)...", failureMessage: "Test failed") { [self] progress in
+        runOperation(startMessage: "\(L10n.string("progress.testing")) \(archiveURL.lastPathComponent)...", failureMessage: L10n.string("test.failed")) { [self] progress in
             try await backend.test(archive: archiveURL, password: archivePassword, progress: progress)
-            return "Test passed"
+            return L10n.string("test.passed")
         }
     }
 
@@ -618,24 +760,24 @@ final class MainWindowController: NSWindowController {
             return
         }
         guard backend.capabilities.contains(.delete) else {
-            Dialogs.showError(AppError.unsupportedOperation("delete", backend.info.name), in: window)
+            Dialogs.showError(AppError.unsupportedOperation(L10n.string("action.delete"), backend.info.name), in: window)
             return
         }
         let entries = selectedEntries()
         guard !entries.isEmpty else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Delete selected entries?"
+        alert.messageText = L10n.string("delete.selectedEntries")
         alert.informativeText = entries.map(\.path).joined(separator: "\n")
-        alert.addButton(withTitle: "Delete")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: L10n.string("action.delete"))
+        alert.addButton(withTitle: L10n.string("button.cancel"))
         guard alert.runModal() == .alertFirstButtonReturn else { return }
 
-        runOperation(startMessage: "Deleting...", failureMessage: "Delete failed") { [self] progress in
+        runOperation(startMessage: L10n.string("progress.deleting"), failureMessage: L10n.string("delete.error")) { [self] progress in
             try await backend.delete(archive: archiveURL, entries: entries, progress: progress)
             allEntries = try await backend.list(archive: archiveURL, password: archivePassword, progress: progress)
             refreshVisibleEntries()
-            return "Deleted \(entries.count) entries"
+            return L10n.format("delete.deletedEntries", entries.count)
         }
     }
 
@@ -645,17 +787,17 @@ final class MainWindowController: NSWindowController {
             return
         }
         guard backend.capabilities.contains(.rename) else {
-            Dialogs.showError(AppError.unsupportedOperation("rename", backend.info.name), in: window)
+            Dialogs.showError(AppError.unsupportedOperation(L10n.string("action.rename"), backend.info.name), in: window)
             return
         }
         let entries = selectedEntries()
         guard entries.count == 1, let entry = entries.first else { return }
 
         let alert = NSAlert()
-        alert.messageText = "Rename Entry"
+        alert.messageText = L10n.string("rename.entry")
         alert.informativeText = entry.path
-        alert.addButton(withTitle: "Rename")
-        alert.addButton(withTitle: "Cancel")
+        alert.addButton(withTitle: L10n.string("action.rename"))
+        alert.addButton(withTitle: L10n.string("button.cancel"))
 
         let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 520, height: 24))
         field.stringValue = entry.path
@@ -665,11 +807,11 @@ final class MainWindowController: NSWindowController {
         let newPath = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !newPath.isEmpty, newPath != entry.path else { return }
 
-        runOperation(startMessage: "Renaming \(entry.name)...", failureMessage: "Rename failed") { [self] progress in
+        runOperation(startMessage: L10n.format("rename.renaming", entry.name), failureMessage: L10n.string("rename.failed")) { [self] progress in
             try await backend.rename(archive: archiveURL, entry: entry, to: newPath, progress: progress)
             allEntries = try await backend.list(archive: archiveURL, password: archivePassword, progress: progress)
             refreshVisibleEntries()
-            return "Renamed \(entry.name)"
+            return L10n.format("rename.done", entry.name)
         }
     }
 
@@ -690,7 +832,7 @@ final class MainWindowController: NSWindowController {
                 backing: .buffered,
                 defer: false
             )
-            panel.title = "Backend Settings"
+            panel.title = L10n.string("options.backendSettings")
             panel.isReleasedWhenClosed = false
 
             let stack = NSStackView()
@@ -699,16 +841,16 @@ final class MainWindowController: NSWindowController {
             stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
             stack.translatesAutoresizingMaskIntoConstraints = false
 
-            let heading = NSTextField(labelWithString: "Choose a detected 7-Zip backend, or use a temporary external executable.")
+            let heading = NSTextField(labelWithString: L10n.string("options.backendHeading"))
             heading.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
 
             let currentBackend = wrappingSettingsLabel(backendSettingsSummary(), width: 780)
 
-            let fieldLabel = NSTextField(labelWithString: "Temporary external executable")
+            let fieldLabel = NSTextField(labelWithString: L10n.string("options.temporaryExecutable"))
             fieldLabel.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
 
             let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 780, height: 24))
-            field.placeholderString = "Manual one-time path, for example /tmp/7z"
+            field.placeholderString = L10n.string("options.temporaryPlaceholder")
             field.stringValue = temporaryPathValue
 
             let temporaryPathRow = NSStackView()
@@ -717,14 +859,14 @@ final class MainWindowController: NSWindowController {
             temporaryPathRow.alignment = .centerY
             temporaryPathRow.translatesAutoresizingMaskIntoConstraints = false
 
-            let candidatesLabel = NSTextField(labelWithString: "Detected backend candidates")
+            let candidatesLabel = NSTextField(labelWithString: L10n.string("options.detectedBackends"))
             candidatesLabel.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
 
             let candidateRows = backendCandidateRows()
             let selectedPath = BackendLocator.selectedBackendPath
             let initiallySelectedRow = candidateRows.firstIndex { row in
                 !selectedPath.isEmpty && URL(fileURLWithPath: row.path).standardizedFileURL.path == URL(fileURLWithPath: selectedPath).standardizedFileURL.path
-            } ?? candidateRows.firstIndex { $0.exists == "available" } ?? -1
+            } ?? candidateRows.firstIndex { $0.exists == L10n.string("options.available") } ?? -1
 
             let candidates = NSTableView()
             candidates.headerView = NSTableHeaderView()
@@ -739,11 +881,11 @@ final class MainWindowController: NSWindowController {
                 height: CGFloat(max(candidateRows.count, 1)) * candidates.rowHeight + 28
             )
             for (identifier, title, width) in [
-                ("name", "Backend", CGFloat(170)),
-                ("exists", "Status", CGFloat(80)),
-                ("version", "Version", CGFloat(250)),
-                ("formats", "Formats", CGFloat(90)),
-                ("path", "Path", CGFloat(360))
+                ("name", L10n.string("options.backend"), CGFloat(170)),
+                ("exists", L10n.string("options.status"), CGFloat(80)),
+                ("version", L10n.string("table.version"), CGFloat(250)),
+                ("formats", L10n.string("options.formats"), CGFloat(90)),
+                ("path", L10n.string("table.path"), CGFloat(360))
             ] {
                 let column = NSTableColumn(identifier: NSUserInterfaceItemIdentifier(identifier))
                 column.title = title
@@ -772,11 +914,11 @@ final class MainWindowController: NSWindowController {
             buttons.alignment = .centerY
             buttons.translatesAutoresizingMaskIntoConstraints = false
             let spacer = NSView()
-            let saveButton = NSButton(title: "Use Selected", target: nil, action: nil)
-            let temporaryButton = NSButton(title: "Use Temporary", target: nil, action: nil)
-            let chooseButton = NSButton(title: "Choose...", target: nil, action: nil)
-            let resetButton = NSButton(title: "Reset to Bundle", target: nil, action: nil)
-            let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+            let saveButton = NSButton(title: L10n.string("options.useSelected"), target: nil, action: nil)
+            let temporaryButton = NSButton(title: L10n.string("options.useTemporary"), target: nil, action: nil)
+            let chooseButton = NSButton(title: L10n.string("options.choose"), target: nil, action: nil)
+            let resetButton = NSButton(title: L10n.string("options.resetBundle"), target: nil, action: nil)
+            let cancelButton = NSButton(title: L10n.string("button.cancel"), target: nil, action: nil)
             let saveTarget = ModalButtonTarget(response: .OK)
             let temporaryTarget = ModalButtonTarget(response: temporaryResponse)
             let chooseTarget = ModalButtonTarget(response: chooseResponse)
@@ -840,11 +982,11 @@ final class MainWindowController: NSWindowController {
             case .OK:
                 let selectedRow = candidates.selectedRow
                 if selectedRow >= 0, selectedRow < candidateRows.count {
-                    guard candidateRows[selectedRow].exists == "available" else {
+                    guard candidateRows[selectedRow].exists == L10n.string("options.available") else {
                         let alert = NSAlert()
-                        alert.messageText = "Backend unavailable"
-                        alert.informativeText = "Choose an available backend executable."
-                        alert.addButton(withTitle: "OK")
+                        alert.messageText = L10n.string("app.backendUnavailable")
+                        alert.informativeText = L10n.string("app.chooseAvailableBackend")
+                        alert.addButton(withTitle: L10n.string("button.ok"))
                         alert.runModal()
                         continue
                     }
@@ -857,9 +999,9 @@ final class MainWindowController: NSWindowController {
                 let temporaryPath = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
                 guard FileManager.default.isExecutableFile(atPath: temporaryPath) else {
                     let alert = NSAlert()
-                    alert.messageText = "Temporary backend unavailable"
-                    alert.informativeText = "Choose an executable 7-Zip command-line binary."
-                    alert.addButton(withTitle: "OK")
+                    alert.messageText = L10n.string("options.temporaryBackendUnavailable")
+                    alert.informativeText = L10n.string("options.chooseExecutable7z")
+                    alert.addButton(withTitle: L10n.string("button.ok"))
                     alert.runModal()
                     temporaryPathValue = temporaryPath
                     continue
@@ -870,7 +1012,7 @@ final class MainWindowController: NSWindowController {
                 return
             case chooseResponse:
                 let panel = NSOpenPanel()
-                panel.title = "Choose Temporary 7-Zip Backend"
+                panel.title = L10n.string("options.chooseTemporaryBackend")
                 panel.canChooseFiles = true
                 panel.canChooseDirectories = false
                 panel.allowsMultipleSelection = false
@@ -896,7 +1038,7 @@ final class MainWindowController: NSWindowController {
             backing: .buffered,
             defer: false
         )
-        panel.title = "Backend Settings"
+        panel.title = L10n.string("options.backendSettings")
         panel.isReleasedWhenClosed = false
 
         let stack = NSStackView()
@@ -905,14 +1047,14 @@ final class MainWindowController: NSWindowController {
         stack.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let heading = NSTextField(labelWithString: "Bundled 7-Zip backend")
+        let heading = NSTextField(labelWithString: L10n.string("app.storeBackendHeading"))
         heading.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
 
         let currentBackend = wrappingSettingsLabel(backendSettingsSummary(), width: 700)
         let notice = wrappingSettingsLabel(AppConfiguration.appStorePolicyNotice, width: 700)
         notice.textColor = .secondaryLabelColor
 
-        let candidatesLabel = NSTextField(labelWithString: "Bundled backend candidate")
+        let candidatesLabel = NSTextField(labelWithString: L10n.string("app.storeBackendCandidate"))
         candidatesLabel.font = .boldSystemFont(ofSize: NSFont.smallSystemFontSize)
 
         let candidates = NSTextView(frame: NSRect(x: 0, y: 0, width: 700, height: 120))
@@ -938,7 +1080,7 @@ final class MainWindowController: NSWindowController {
         buttons.alignment = .centerY
         buttons.translatesAutoresizingMaskIntoConstraints = false
         let spacer = NSView()
-        let closeButton = NSButton(title: "Close", target: nil, action: nil)
+        let closeButton = NSButton(title: L10n.string("button.close"), target: nil, action: nil)
         let closeTarget = ModalButtonTarget(response: .OK)
         closeButton.bezelStyle = .rounded
         closeButton.target = closeTarget
@@ -998,8 +1140,8 @@ final class MainWindowController: NSWindowController {
     private func backendCandidateRows() -> [BackendCandidateRow] {
         BackendLocator.candidates().map { candidate in
             let isExecutable = FileManager.default.isExecutableFile(atPath: candidate.url.path)
-            let exists = isExecutable ? "available" : "missing"
-            let version = isExecutable ? (BackendLocator.versionStringSync(for: candidate.url) ?? "Unknown version") : "Not available"
+            let exists = isExecutable ? L10n.string("options.available") : L10n.string("options.notFound")
+            let version = isExecutable ? (BackendLocator.versionStringSync(for: candidate.url) ?? L10n.string("options.unknownVersion")) : L10n.string("options.notAvailable")
             let info = BackendInfo(name: candidate.name, executableURL: candidate.url, version: "", capabilities: candidate.capabilities)
             return BackendCandidateRow(
                 name: candidate.name,
@@ -1014,7 +1156,7 @@ final class MainWindowController: NSWindowController {
 
     private func capabilitySummary(_ capabilities: BackendCapabilities) -> String {
         let labels = capabilities.labels
-        return labels.isEmpty ? "None" : labels.joined(separator: ", ")
+        return labels.isEmpty ? L10n.string("options.none") : labels.joined(separator: ", ")
     }
 
     private func wrappingSettingsLabel(_ text: String, width: CGFloat) -> NSTextField {
@@ -1327,7 +1469,7 @@ extension MainWindowController: NSMenuItemValidation {
         let action = menuItem.action
         return MainActor.assumeIsolated {
             switch action {
-            case #selector(openArchivePanel), #selector(showBackendSettings):
+            case #selector(openArchivePanel), #selector(showBackendSettings), #selector(showOptions):
                 return true
             case #selector(addFiles):
                 return backend?.capabilities.contains(.add) == true
@@ -1375,21 +1517,21 @@ extension MainWindowController: NSToolbarDelegate {
             let item = NSToolbarItem(itemIdentifier: itemIdentifier)
             switch itemIdentifier {
             case .openArchive:
-                configure(item, label: "Open", image: "folder", action: #selector(openArchivePanel))
+                configure(item, label: L10n.string("action.open"), image: "folder", action: #selector(openArchivePanel))
             case .addFiles:
-                configure(item, label: "Add", image: "plus.square", action: #selector(addFiles))
+                configure(item, label: L10n.string("toolbar.add"), image: "plus.square", action: #selector(addFiles))
             case .extract:
-                configure(item, label: "Extract", image: "arrow.down.doc", action: #selector(extractSelected))
+                configure(item, label: L10n.string("toolbar.extract"), image: "arrow.down.doc", action: #selector(extractSelected))
             case .testArchive:
-                configure(item, label: "Test", image: "checkmark.seal", action: #selector(testArchive))
+                configure(item, label: L10n.string("toolbar.test"), image: "checkmark.seal", action: #selector(testArchive))
             case .renameEntry:
-                configure(item, label: "Rename", image: "pencil", action: #selector(renameSelected))
+                configure(item, label: L10n.string("action.rename"), image: "pencil", action: #selector(renameSelected))
             case .deleteEntry:
-                configure(item, label: "Delete", image: "trash", action: #selector(deleteSelected))
+                configure(item, label: L10n.string("action.delete"), image: "trash", action: #selector(deleteSelected))
             case .password:
-                configure(item, label: "Password", image: "lock", action: #selector(askPasswordAndReload))
+                configure(item, label: L10n.string("password.label"), image: "lock", action: #selector(askPasswordAndReload))
             case .backendSettings:
-                configure(item, label: "Backend", image: "gearshape", action: #selector(showBackendSettings))
+                configure(item, label: L10n.string("options.backend"), image: "gearshape", action: #selector(showBackendSettings))
             default:
                 return nil
             }
@@ -1481,7 +1623,7 @@ private final class BackendCandidateTableDataSource: NSObject, NSTableViewDataSo
         default:
             field.stringValue = ""
         }
-        field.textColor = candidate.exists == "available" ? .labelColor : .secondaryLabelColor
+        field.textColor = candidate.exists == L10n.string("options.available") ? .labelColor : .secondaryLabelColor
         return cell
     }
 }

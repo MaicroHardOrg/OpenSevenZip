@@ -33,12 +33,12 @@ struct BackendCapabilities: OptionSet, Sendable {
 
     var labels: [String] {
         [
-            (.list, "List"),
-            (.extract, "Extract"),
-            (.add, "Add"),
-            (.test, "Test"),
-            (.delete, "Delete"),
-            (.rename, "Rename")
+            (.list, L10n.string("view.list")),
+            (.extract, L10n.string("toolbar.extract")),
+            (.add, L10n.string("toolbar.add")),
+            (.test, L10n.string("toolbar.test")),
+            (.delete, L10n.string("action.delete")),
+            (.rename, L10n.string("action.rename"))
         ].compactMap { capability, label in
             contains(capability) ? label : nil
         }
@@ -70,12 +70,12 @@ enum ArchiveOperation: Sendable {
 
     var description: String {
         switch self {
-        case .list: "list"
-        case .extract: "extract"
-        case .add: "add"
-        case .test: "test"
-        case .delete: "delete"
-        case .rename: "rename"
+        case .list: L10n.string("view.list").lowercased()
+        case .extract: L10n.string("toolbar.extract").lowercased()
+        case .add: L10n.string("toolbar.add").lowercased()
+        case .test: L10n.string("toolbar.test").lowercased()
+        case .delete: L10n.string("action.delete").lowercased()
+        case .rename: L10n.string("action.rename").lowercased()
         }
     }
 }
@@ -109,19 +109,19 @@ enum AppError: Error, CustomStringConvertible, Sendable {
         switch self {
         case .noBackend:
             #if APP_STORE
-            "No bundled 7-Zip backend was found. Reinstall \(AppConfiguration.productName) or contact support."
+            L10n.format("error.noBackendAppStore", AppConfiguration.productName)
             #else
-            "No 7-Zip backend was found. Build the bundled official 7zz backend or install p7zip."
+            L10n.string("error.noBackend")
             #endif
         case .noArchiveSelected:
-            "No archive is open."
+            L10n.string("error.noArchive")
         case .invalidArchive(let url):
-            "The selected item is not an archive: \(url.path)"
+            L10n.format("error.invalidArchive", url.path)
         case .unsupportedOperation(let operation, let backend):
             #if APP_STORE
-            "\(backend) does not support \(operation)."
+            L10n.format("error.unsupported", backend, operation)
             #else
-            "\(backend) does not support \(operation). Choose another 7-Zip backend in Backend Settings."
+            L10n.format("error.unsupportedGithub", backend, operation)
             #endif
         }
     }

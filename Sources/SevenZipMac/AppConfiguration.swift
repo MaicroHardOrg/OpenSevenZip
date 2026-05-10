@@ -6,7 +6,9 @@ enum AppConfiguration {
     #if APP_STORE
     static let distributionName = "App Store"
     static let allowsExternalBackends = false
-    static let appStorePolicyNotice = "The Mac App Store build uses only the bundled backend. Apple policy disallows running arbitrary external executables; the GitHub build supports host and imported backends."
+    static var appStorePolicyNotice: String {
+        L10n.string("app.storePolicyNotice")
+    }
     #else
     static let distributionName = "GitHub"
     static let allowsExternalBackends = true

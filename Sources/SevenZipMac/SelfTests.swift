@@ -11,6 +11,7 @@ enum SelfTests {
         try commandBuilderPreservesPathsPasswordsAndSelections()
         try commandBuilderHandlesOverwriteModesAndHeaderEncryption()
         try backendCandidatesUseExpectedPriority()
+        try localizationTablesAreComplete()
         print("Self-tests passed")
     }
 
@@ -301,13 +302,20 @@ enum SelfTests {
             bundleURL: nil,
             pathEnvironment: "/usr/local/bin:/opt/homebrew/bin:/usr/local/bin"
         )
-        let pathCandidateNames = pathCandidates.map(\.name)
         if FileManager.default.isExecutableFile(atPath: "/usr/local/bin/7z") {
-            try expect(pathCandidateNames.first == "Host PATH 7z", "PATH 7z appears before fallback and dedupes fallback")
+            try expect(pathCandidates.contains { $0.name == "Host PATH 7z" && $0.url.path == "/usr/local/bin/7z" }, "PATH 7z appears before fallback and dedupes fallback")
             try expect(pathCandidates.filter { $0.url.path == "/usr/local/bin/7z" }.count == 1, "dedupe PATH and fallback 7z")
         }
         try expect(BackendCapabilities([.list, .add, .test]).labels == ["List", "Add", "Test"], "capability labels")
         #endif
+    }
+
+    private static func localizationTablesAreComplete() throws {
+        try L10n.validateLocalizationTables()
+        try expect(L10n.resolvedLanguageCode(preferredLanguages: ["zh-CN"]) == "zh-Hans", "simplified Chinese language resolution")
+        try expect(L10n.resolvedLanguageCode(preferredLanguages: ["zz-ZZ"]) == "en", "unknown language falls back to English")
+        try expect(L10n.string("button.cancel") == "Cancel", "English localization lookup")
+        try expect(!L10n.string("options.language").isEmpty, "options language string exists")
     }
 
     private static func expect(_ condition: @autoclosure () -> Bool, _ message: String) throws {

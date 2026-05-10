@@ -54,6 +54,7 @@ package-variant:
 	cp "$(INFO_PLIST)" "$(CONTENTS_DIR)/Info.plist"
 	cp "Resources/AppIcon.icns" "$(RESOURCES_DIR)/AppIcon.icns"
 	cp "Resources/ThirdPartyNotices.txt" "$(RESOURCES_DIR)/ThirdPartyNotices.txt"
+	if [ -d "Resources/Localizations" ]; then cp -R "Resources/Localizations" "$(RESOURCES_DIR)/Localizations"; fi
 	if [ -x "Resources/7zz" ]; then cp "Resources/7zz" "$(MACOS_DIR)/7zz"; fi
 	if [ -x "$(MACOS_DIR)/7zz" ]; then codesign --force --options runtime --entitlements "$(HELPER_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(MACOS_DIR)/7zz"; fi
 	codesign --force --options runtime --entitlements "$(APP_ENTITLEMENTS)" --sign "$(SIGN_IDENTITY)" "$(MACOS_DIR)/$(EXECUTABLE)"

@@ -9,6 +9,8 @@ License information: https://www.7-zip.org/license.txt
 
 The bundled command-line backend is the official 7-Zip for macOS executable, 7zz, when Resources/7zz is present in the built app bundle. 7-Zip is primarily licensed under the GNU LGPL, with additional license terms for some components as described by the upstream project.
 
+Localization resources for overlapping 7-Zip File Manager UI terminology are derived from or aligned with official 7-Zip 26.01 language files where available. OpenSevenZip Explorer-specific strings are maintained by this project and require separate translation review.
+
 p7zip
 The GitHub build can discover and use host-installed p7zip/7-Zip command-line tools such as 7z, 7za, and 7zr. These tools are not bundled with OpenSevenZip Explorer.
 
