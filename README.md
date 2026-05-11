@@ -84,6 +84,7 @@ The App Store/TestFlight build is written to `dist/OpenSevenZip Explorer.app`.
 - Password prompts for listing, extracting, testing, and creating encrypted archives.
 - GitHub build backend settings with bundled, host, and temporary executable candidates.
 - App Store/TestFlight build backend settings with bundled backend status and policy notice.
+- Multi-language UI with `Tools > Options...` language selection; English plus Simplified Chinese, Japanese, Korean, French, German, Spanish, and Russian string tables are bundled.
 - Licenses and attribution available from the Help menu and bundled notice file.
 
 ## Acknowledgements

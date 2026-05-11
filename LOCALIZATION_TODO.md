@@ -21,12 +21,13 @@ Verification completed:
 - `make test-appstore`
 - `make package-github`
 - `git diff --check`
+- GUI smoke pass with a public dummy ZIP at `/tmp/o7z-localization-smoke/circular-dragon-public.zip`; report and screenshot written to `/tmp/o7z-localization-smoke/report2.json` and `/tmp/o7z-localization-smoke/report2.png`.
+- README and README_CN mention bundled multi-language UI support.
 
 Remaining engineering follow-up:
 
-- Run an interactive GUI smoke pass after packaging to inspect longer translated strings in the Options, Add, Extract, and Backend Settings windows.
+- Run an interactive GUI smoke pass to inspect longer translated strings in the Options, Add, Extract, and Backend Settings modal windows. The current automated smoke pass covers the main window, toolbar, menus, context menu, table headers, sorting, archive listing, screenshot capture, and packaged localization resources.
 - Consider replacing the remaining few intentionally technical English-only diagnostics in smoke-test error paths if those ever become user-visible.
-- Optionally update `README.md` and `README_CN.md` to mention multi-language support.
 
 ## Source Summary
 

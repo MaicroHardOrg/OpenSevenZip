@@ -6,7 +6,7 @@ final class MainWindowController: NSWindowController {
     private let statusField = NSTextField(labelWithString: L10n.string("app.detectingBackend"))
     private let progress = NSProgressIndicator()
     private let cancelButton = NSButton(title: L10n.string("button.cancel"), target: nil, action: nil)
-    private let upButton = NSButton(title: L10n.string("nav.upOneLevel"), target: nil, action: nil)
+    private let upButton = NSButton(title: "", target: nil, action: nil)
     private let tableView = ArchiveTableView()
     private let scrollView = NSScrollView()
 
@@ -54,7 +54,7 @@ final class MainWindowController: NSWindowController {
         pathBar.wantsLayer = true
         pathBar.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
 
-        upButton.title = L10n.string("nav.upOneLevel")
+        configureUpButton()
         upButton.target = self
         upButton.action = #selector(goUp)
         upButton.bezelStyle = .rounded
@@ -68,7 +68,7 @@ final class MainWindowController: NSWindowController {
         pathBar.addSubview(pathField)
         NSLayoutConstraint.activate([
             upButton.leftAnchor.constraint(equalTo: pathBar.leftAnchor),
-            upButton.widthAnchor.constraint(equalToConstant: 112),
+            upButton.widthAnchor.constraint(equalToConstant: 36),
             upButton.centerYAnchor.constraint(equalTo: pathBar.centerYAnchor),
             pathField.leftAnchor.constraint(equalTo: upButton.rightAnchor, constant: 8),
             pathField.rightAnchor.constraint(equalTo: pathBar.rightAnchor, constant: -12),
@@ -129,6 +129,13 @@ final class MainWindowController: NSWindowController {
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
         scrollView.hasHorizontalScroller = true
+    }
+
+    private func configureUpButton() {
+        upButton.title = ""
+        upButton.image = NSImage(systemSymbolName: "arrow.up", accessibilityDescription: L10n.string("nav.upOneLevel"))
+        upButton.imagePosition = .imageOnly
+        upButton.toolTip = L10n.string("nav.upOneLevel")
     }
 
     private func addColumn(_ identifier: String, title: String, width: CGFloat) {
@@ -226,7 +233,7 @@ final class MainWindowController: NSWindowController {
 
     private func refreshLocalizedText() {
         window?.title = AppConfiguration.productName
-        upButton.title = L10n.string("nav.upOneLevel")
+        configureUpButton()
         cancelButton.title = L10n.string("button.cancel")
         installMainMenu()
         window?.toolbar = makeToolbar()

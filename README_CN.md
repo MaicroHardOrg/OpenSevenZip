@@ -51,6 +51,12 @@ open "dist/OpenSevenZip Explorer-gh.app" --args /path/to/archive.7z
 
 App Store/TestFlight 版本输出到 `dist/OpenSevenZip Explorer.app`。
 
+## 当前功能
+
+- 多语言界面，可在 `Tools > Options...` 中选择语言。
+- 已打包英文、简体中文、日文、韩文、法文、德文、西班牙文和俄文字符串表。
+- 与 7-Zip 原界面重叠的术语尽量对齐官方 7-Zip 语言资源；OpenSevenZip Explorer 新增文案仍需要人工校对。
+
 ## 致谢
 
 感谢 Igor Pavlov 和 [7-Zip](https://7-zip.org/) 贡献者开发 7-Zip，也感谢 [p7zip](https://github.com/p7zip-project/p7zip)/7-Zip 命令行工具生态，使本应用能够与这些工具协同工作。本项目开发过程中使用了 [OpenAI Codex](https://openai.com/codex/) 作为 AI 编程助手。OpenSevenZip Explorer 仍是独立项目，并不代表获得 7-Zip、p7zip、OpenAI 或 Codex 的认可或背书。
