@@ -13,6 +13,8 @@ final class MainWindowController: NSWindowController {
     private var backend: SevenZipBackend?
     private var archiveURL: URL?
     private var archivePassword: String?
+    private var pendingArchiveURL: URL?
+    private var backendDetectionTask: Task<Void, Never>?
     private var currentDirectoryURL: URL?
     private var allEntries: [ArchiveEntry] = []
     private var currentPath = ""
@@ -104,7 +106,7 @@ final class MainWindowController: NSWindowController {
             scrollView.heightAnchor.constraint(greaterThanOrEqualToConstant: 300)
         ])
 
-        Task { await detectBackend() }
+        backendDetectionTask = Task { await detectBackend() }
     }
 
     private func setupTable() {
@@ -446,6 +448,15 @@ final class MainWindowController: NSWindowController {
         setBusy(true, message: L10n.string("app.detectingBackend"))
         backend = await BackendLocator.defaultBackend()
         setBusy(false, message: backend.map { "\($0.info.name): \($0.info.version)" } ?? AppError.noBackend.description)
+        backendDetectionTask = nil
+        if let pendingArchiveURL {
+            self.pendingArchiveURL = nil
+            if backend != nil {
+                openArchive(at: pendingArchiveURL)
+            } else {
+                Dialogs.showError(AppError.noBackend, in: window)
+            }
+        }
     }
 
     private func reloadArchive(password: String? = nil) {
@@ -657,6 +668,17 @@ final class MainWindowController: NSWindowController {
     }
 
     func openArchive(at url: URL) {
+        if backend == nil {
+            pendingArchiveURL = url
+            archiveURL = url
+            currentDirectoryURL = nil
+            pathField.stringValue = url.path
+            setBusy(true, message: L10n.string("app.detectingBackend"))
+            if backendDetectionTask == nil {
+                backendDetectionTask = Task { await detectBackend() }
+            }
+            return
+        }
         currentDirectoryURL = nil
         archivePassword = nil
         archiveURL = url
