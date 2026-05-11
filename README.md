@@ -5,6 +5,8 @@
 
 This is a vibe coding attempt to port the [7-Zip](https://7-zip.org/) File Manager for Windows experience to macOS. It is a native macOS/[AppKit](https://developer.apple.com/documentation/appkit) GUI for 7-Zip archive workflows, not a mature product.
 
+The UI now includes bundled language tables and a runtime language setting. It ships with English, Simplified Chinese, Japanese, Korean, French, German, Spanish, and Russian resources. Terms that overlap with 7-Zip File Manager are aligned with official 7-Zip language files where available; OpenSevenZip Explorer-specific strings are tracked for human translation review in [`LOCALIZATION_TODO.md`](LOCALIZATION_TODO.md).
+
 The app shares one Swift source tree and has two distribution builds:
 
 - [Mac App Store](https://developer.apple.com/app-store/)/[TestFlight](https://developer.apple.com/testflight/) build: sandboxed, bundled official `7zz` only.
@@ -64,6 +66,10 @@ open "dist/OpenSevenZip Explorer-gh.app" --args /path/to/archive.7z
 
 The App Store/TestFlight build is written to `dist/OpenSevenZip Explorer.app`.
 
+## Language Support
+
+Open **Tools > Options...** to choose the UI language, or keep **System Default** to follow macOS preferred languages. The language setting applies to the main window chrome, menus, toolbar labels, table headers, dialogs, backend settings, alerts, and operation status messages. Already-open modal windows may need to be reopened after changing the language.
+
 ## Current Features
 
 - Open archives from the app, Finder/Open With, or a launch argument.
@@ -84,7 +90,7 @@ The App Store/TestFlight build is written to `dist/OpenSevenZip Explorer.app`.
 - Password prompts for listing, extracting, testing, and creating encrypted archives.
 - GitHub build backend settings with bundled, host, and temporary executable candidates.
 - App Store/TestFlight build backend settings with bundled backend status and policy notice.
-- Multi-language UI with `Tools > Options...` language selection; English plus Simplified Chinese, Japanese, Korean, French, German, Spanish, and Russian string tables are bundled.
+- Multi-language UI with `Tools > Options...` language selection and bundled English, Simplified Chinese, Japanese, Korean, French, German, Spanish, and Russian string tables.
 - Licenses and attribution available from the Help menu and bundled notice file.
 
 ## Acknowledgements
