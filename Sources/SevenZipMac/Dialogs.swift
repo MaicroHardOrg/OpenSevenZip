@@ -68,43 +68,92 @@ enum Dialogs {
     }
 
     static func askExtractOptions(destination: URL, defaultPassword: String?, in window: NSWindow?) -> ExtractOptions? {
-        let alert = NSAlert()
-        alert.messageText = L10n.string("extract.title")
-        alert.informativeText = destination.path
-        alert.addButton(withTitle: L10n.string("toolbar.extract"))
-        alert.addButton(withTitle: L10n.string("button.cancel"))
+        let panel = NSPanel(
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 280),
+            styleMask: [.titled],
+            backing: .buffered,
+            defer: false
+        )
+        panel.title = L10n.string("extract.title")
+        panel.isReleasedWhenClosed = false
+
+        let root = NSStackView()
+        root.orientation = .vertical
+        root.spacing = 14
+        root.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
+        root.translatesAutoresizingMaskIntoConstraints = false
+
+        let destinationLabel = wrappingLabel(destination.path, width: 560)
 
         let stack = NSStackView()
         stack.orientation = .vertical
         stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let passwordField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        let passwordField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 26))
         passwordField.placeholderString = L10n.string("password.label")
         passwordField.stringValue = defaultPassword ?? ""
 
         let overwriteButton = NSButton(checkboxWithTitle: L10n.string("extract.overwrite"), target: nil, action: nil)
+        overwriteButton.lineBreakMode = .byTruncatingTail
         overwriteButton.state = .on
 
         let openDestinationButton = NSButton(checkboxWithTitle: L10n.string("extract.showDestination"), target: nil, action: nil)
+        openDestinationButton.lineBreakMode = .byTruncatingTail
         openDestinationButton.state = .on
 
-        stack.addArrangedSubview(passwordField)
+        stack.addArrangedSubview(formRow(label: L10n.string("password.label"), control: passwordField))
         stack.addArrangedSubview(overwriteButton)
         stack.addArrangedSubview(openDestinationButton)
-        alert.accessoryView = stack
+
+        let buttons = NSStackView()
+        buttons.orientation = .horizontal
+        buttons.alignment = .centerY
+        buttons.spacing = 10
+        buttons.translatesAutoresizingMaskIntoConstraints = false
+        let spacer = NSView()
+        let cancelButton = NSButton(title: L10n.string("button.cancel"), target: nil, action: nil)
+        let extractButton = NSButton(title: L10n.string("toolbar.extract"), target: nil, action: nil)
+        let cancelTarget = ModalButtonTarget(response: .cancel)
+        let extractTarget = ModalButtonTarget(response: .OK)
+        for (button, target) in [(cancelButton, cancelTarget), (extractButton, extractTarget)] {
+            button.bezelStyle = .rounded
+            button.target = target
+            button.action = #selector(ModalButtonTarget.closeModal(_:))
+        }
+        cancelButton.keyEquivalent = "\u{1b}"
+        extractButton.keyEquivalent = "\r"
+        buttons.addArrangedSubview(cancelButton)
+        buttons.addArrangedSubview(spacer)
+        buttons.addArrangedSubview(extractButton)
+
+        root.addArrangedSubview(destinationLabel)
+        root.addArrangedSubview(stack)
+        root.addArrangedSubview(buttons)
+
+        let contentView = NSView()
+        panel.contentView = contentView
+        contentView.addSubview(root)
         NSLayoutConstraint.activate([
-            stack.widthAnchor.constraint(equalToConstant: 380)
+            root.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+            root.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            root.topAnchor.constraint(equalTo: contentView.topAnchor),
+            root.bottomAnchor.constraint(equalTo: contentView.bottomAnchor),
+            stack.widthAnchor.constraint(equalToConstant: 560),
+            spacer.widthAnchor.constraint(greaterThanOrEqualToConstant: 360)
         ])
 
-        let response: NSApplication.ModalResponse
         if let window {
-            response = alert.runSheetModal(for: window)
+            panel.centerRelative(to: window)
         } else {
-            response = alert.runModal()
+            panel.center()
         }
+        panel.makeKeyAndOrderFront(nil)
+        let response = NSApp.runModal(for: panel)
+        panel.orderOut(nil)
+        _ = [cancelTarget, extractTarget]
 
-        guard response == .alertFirstButtonReturn else { return nil }
+        guard response == .OK else { return nil }
         return ExtractOptions(
             destination: destination,
             password: passwordField.stringValue,
