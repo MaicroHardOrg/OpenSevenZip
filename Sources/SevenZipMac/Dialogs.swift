@@ -4,7 +4,6 @@ import AppKit
 enum Dialogs {
     struct ExtractOptions: Sendable {
         var destination: URL
-        var password: String?
         var overwrite: Bool
         var openDestination: Bool
     }
@@ -67,9 +66,9 @@ enum Dialogs {
         return response == .alertFirstButtonReturn ? field.stringValue : nil
     }
 
-    static func askExtractOptions(destination: URL, defaultPassword: String?, in window: NSWindow?) -> ExtractOptions? {
+    static func askExtractOptions(destination: URL, in window: NSWindow?) -> ExtractOptions? {
         let panel = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 620, height: 280),
+            contentRect: NSRect(x: 0, y: 0, width: 620, height: 240),
             styleMask: [.titled],
             backing: .buffered,
             defer: false
@@ -90,10 +89,6 @@ enum Dialogs {
         stack.spacing = 10
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let passwordField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 26))
-        passwordField.placeholderString = L10n.string("password.label")
-        passwordField.stringValue = defaultPassword ?? ""
-
         let overwriteButton = NSButton(checkboxWithTitle: L10n.string("extract.overwrite"), target: nil, action: nil)
         overwriteButton.lineBreakMode = .byTruncatingTail
         overwriteButton.state = .on
@@ -102,7 +97,6 @@ enum Dialogs {
         openDestinationButton.lineBreakMode = .byTruncatingTail
         openDestinationButton.state = .on
 
-        stack.addArrangedSubview(formRow(label: L10n.string("password.label"), control: passwordField))
         stack.addArrangedSubview(overwriteButton)
         stack.addArrangedSubview(openDestinationButton)
 
@@ -156,7 +150,6 @@ enum Dialogs {
         guard response == .OK else { return nil }
         return ExtractOptions(
             destination: destination,
-            password: passwordField.stringValue,
             overwrite: overwriteButton.state == .on,
             openDestination: openDestinationButton.state == .on
         )

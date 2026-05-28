@@ -713,17 +713,15 @@ final class MainWindowController: NSWindowController {
         guard panel.runModal() == .OK, let destination = panel.url else { return }
 
         let entries = selectedEntries()
-        guard let options = Dialogs.askExtractOptions(destination: destination, defaultPassword: archivePassword, in: window) else { return }
-        if options.password?.isEmpty == false {
-            archivePassword = options.password
-        }
+        let password = archivePassword
+        guard let options = Dialogs.askExtractOptions(destination: destination, in: window) else { return }
 
         runOperation(startMessage: L10n.string("progress.extracting"), failureMessage: L10n.string("extract.failed")) { progress in
             try await backend.extract(
                 archive: archiveURL,
                 entries: entries,
                 destination: options.destination,
-                password: options.password,
+                password: password,
                 overwrite: options.overwrite,
                 progress: progress
             )
